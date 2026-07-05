@@ -4,6 +4,6 @@
 using namespace std;
 
 int test() {
-    cout << "C++ folders!" << endl;
+    cout << "C++ folders 2!" << endl;
     return 0;
 }
