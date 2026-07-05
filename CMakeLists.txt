@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.5)
+project(PrestoEngine)
+set(SOURCE main.cpp)
+set(TEST_CPP ${PrestoEngine_SOURCE_DIR}/src/test.cpp)
+set(TEST_H ${PrestoEngine_SOURCE_DIR}/src/includes/test.h)
+add_executable(${PROJECT_NAME} ${SOURCE} ${TEST_CPP} ${TEST_H})
