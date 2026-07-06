@@ -3,5 +3,19 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
-    "configurations": []
+    "configurations": [
+        {
+            "name": "Debug Vulkan Application",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/PrestoEngine",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {"name": "VK_LAYER_PATH", "value": "${VULKAN_SDK}/Include"}
+            ],
+            "externalConsole": false
+        }
+    ]
 }
