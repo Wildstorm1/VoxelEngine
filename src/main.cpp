@@ -47,7 +47,3 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     // Your cleanup code here
 }
-
-int main(int argc, const char * argv[]) {
-    return test();
-}
