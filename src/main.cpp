@@ -30,6 +30,23 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         return SDL_Fail();
     }    
     
+    VkApplicationInfo appInfo = {};
+    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    appInfo.pApplicationName = "SettleAndSurvive";
+    appInfo.pEngineName = "Presto";
+
+    VkInstanceCreateInfo instanceInfo = {};
+    instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    instanceInfo.pApplicationInfo = &appInfo;
+
+    VkInstance instance;
+
+    VkResult result = vkCreateInstance(&instanceInfo, 0, &instance);
+
+    if (result == VK_SUCCESS) {
+        std::cout << "Successfully created vulkan instance" << std::endl;
+    }
+
     return SDL_APP_CONTINUE; 
 }
 
