@@ -9,6 +9,31 @@
 
 using namespace std;
 
+struct QueueFamilyIndicies {
+    optional<uint32_t> graphics_index;
+    optional<uint32_t> presentation_index;
+};
+
+struct DeviceInfo {
+    QueueFamilyIndicies indicies;
+    VkPhysicalDevice device;
+};
+
+struct QueuesInfo {
+    vector<VkDeviceQueueCreateInfo> infos;
+};
+
+struct SwapChainSupportDetails {
+    VkSurfaceCapabilitiesKHR capabilities;
+    vector<VkSurfaceFormatKHR> formats;
+    vector<VkPresentModeKHR> presentModes;
+};
+
+const vector<const char*> deviceExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    VK_EXT_MESH_SHADER_EXTENSION_NAME
+};
+
 Graphics::Graphics() {
     this->window = NULL;
     this->instance = {};
@@ -128,9 +153,25 @@ int Graphics::init(SDL_Window *window) {
     return EXIT_SUCCESS;
 }
 
-QueueFamilyIndicies getSuitableDeviceGraphicsQueue(
+bool checkDeviceExtensionsSupport(VkPhysicalDevice device) {
+    uint32_t extensionCount;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+
+    vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+    set<string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
+    for (const auto& extension : availableExtensions) {
+        requiredExtensions.erase(extension.extensionName);
+    }
+
+    return requiredExtensions.empty();
+}
+
+QueueFamilyIndicies getSuitableDeviceQueues(
     VkPhysicalDevice device,
-    VkSurfaceKHR *surface
+    VkSurfaceKHR surface
 ) {
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
@@ -138,7 +179,7 @@ QueueFamilyIndicies getSuitableDeviceGraphicsQueue(
     VkPhysicalDeviceFeatures deviceFeatures;
     vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
-    bool isSuitable = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+    bool isSuitable = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && checkDeviceExtensionsSupport(device);
 
     if (isSuitable) {
         cout << "Suitable Device: " << deviceProperties.deviceName << endl;
@@ -156,7 +197,7 @@ QueueFamilyIndicies getSuitableDeviceGraphicsQueue(
 
     for (const auto& queueFamily : queueFamilies) {
         VkBool32 presentationSupported = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, *surface, &presentationSupported);
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentationSupported);
 
         if (presentationSupported) {
             indexes.presentation_index = i;
@@ -172,40 +213,53 @@ QueueFamilyIndicies getSuitableDeviceGraphicsQueue(
     return indexes;
 }
 
-/*
- * Takes ownership over window until release
- */
-int Graphics::select_device() {
+DeviceInfo selectPhysicalDevice(
+    VkInstance instance,
+    VkSurfaceKHR surface
+) {
+    DeviceInfo infos;
+    infos.device = VK_NULL_HANDLE;
+
     uint32_t device_count = 0;
-    vkEnumeratePhysicalDevices(this->instance, &device_count, nullptr);
+    vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
 
     if (device_count == 0) {
         cout << "No Vulkan GPU's found" << endl;
-        return EXIT_FAILURE;
+        return infos;
     }
 
     vector<VkPhysicalDevice> devices(device_count);
-    vkEnumeratePhysicalDevices(this->instance, &device_count, devices.data());
-
-    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    QueueFamilyIndicies indices;
+    vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
 
     for (const auto& device : devices) {
-        indices = getSuitableDeviceGraphicsQueue(device, &this->surface);
+        infos.indicies = getSuitableDeviceQueues(device, surface);
 
-        if (indices.graphics_index.has_value() && indices.presentation_index.has_value()) {
-            physicalDevice = device;
+        if (infos.indicies.graphics_index.has_value() && infos.indicies.presentation_index.has_value()) {
+            infos.device = device;
             break;
         }
     }
 
-    if (physicalDevice == VK_NULL_HANDLE || !indices.graphics_index.has_value() || !indices.presentation_index.has_value()) {
+    if (infos.device == VK_NULL_HANDLE || !infos.indicies.graphics_index.has_value() || !infos.indicies.presentation_index.has_value()) {
         cout << "Failed to find a suitable GPU!" << endl;
-        return EXIT_FAILURE;
+
+        infos = {};
+        infos.device = VK_NULL_HANDLE;
+
+        return infos;
     }
 
+    return infos;
+}
+
+QueuesInfo selectQueues(
+    DeviceInfo device_infos
+) {
     vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    set<uint32_t> uniqueQueueFamilies = { indices.graphics_index.value(), indices.presentation_index.value() };
+    set<uint32_t> uniqueQueueFamilies = {
+        device_infos.indicies.graphics_index.value(),
+        device_infos.indicies.presentation_index.value()
+    };
 
     float priority = 1.0f;
 
@@ -219,15 +273,35 @@ int Graphics::select_device() {
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
+    QueuesInfo queueInfos;
+    queueInfos.infos = queueCreateInfos;
+    return queueInfos;
+}
+
+/*
+ * Takes ownership over window until release
+ */
+int Graphics::select_device() {
+    DeviceInfo device_infos = selectPhysicalDevice(this->instance, this->surface);
+
+    if (device_infos.device == VK_NULL_HANDLE) {
+        cout << "Failed device selection" << endl;
+        return EXIT_FAILURE;
+    }
+
+    QueuesInfo queue_infos = selectQueues(device_infos);
+
     VkPhysicalDeviceFeatures deviceFeatures {};
 
     VkDeviceCreateInfo createInfo {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.pQueueCreateInfos = queueCreateInfos.data();
-    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+    createInfo.pQueueCreateInfos = queue_infos.infos.data();
+    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queue_infos.infos.size());
     createInfo.pEnabledFeatures = &deviceFeatures;
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+    createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
-    VkResult result = vkCreateDevice(physicalDevice, &createInfo, nullptr, &this->logical_device);
+    VkResult result = vkCreateDevice(device_infos.device, &createInfo, nullptr, &this->logical_device);
 
     if (result == VK_SUCCESS) {
         cout << "Successfully created vulkan logical device" << endl;
@@ -235,10 +309,31 @@ int Graphics::select_device() {
         return EXIT_FAILURE;
     }
 
-    vkGetDeviceQueue(this->logical_device, indices.graphics_index.value(), 0, &this->graphics_queue);
-    vkGetDeviceQueue(this->logical_device, indices.presentation_index.value(), 0, &this->presentation_queue);
+    vkGetDeviceQueue(this->logical_device, device_infos.indicies.graphics_index.value(), 0, &this->graphics_queue);
+    vkGetDeviceQueue(this->logical_device, device_infos.indicies.presentation_index.value(), 0, &this->presentation_queue);
 
     return EXIT_SUCCESS;
+}
+
+SwapChainSupportDetails querySwapChainSupport(
+    VkPhysicalDevice device,
+    VkSurfaceKHR surface
+) {
+    SwapChainSupportDetails details;
+
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+
+
+
+
+    return details;
+}
+
+/*
+ * Sets up image related resources
+ */
+int Graphics::setup_image() {
+    return 0;
 }
 
 /*
