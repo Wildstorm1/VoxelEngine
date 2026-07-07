@@ -4,16 +4,17 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_init.h>
-#include <vulkan/vulkan.h>
 
-#include "./includes/test/test.h"
+#include "./includes/graphics/graphics.h"
 
 using namespace std;
 
 constexpr uint32_t windowStartWidth = 400;
 constexpr uint32_t windowStartHeight = 400;
+void *graphics_memory = nullptr;
+Graphics *graphics = nullptr;
 
-SDL_AppResult SDL_Fail(){
+SDL_AppResult SDL_Fail() {
     SDL_LogError(SDL_LOG_CATEGORY_CUSTOM, "Error %s", SDL_GetError());
     return SDL_APP_FAILURE;
 }
@@ -24,30 +25,27 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         return SDL_Fail();
     }
 
-    SDL_Window* window = SDL_CreateWindow("SDL Minimal Sample", windowStartWidth, windowStartHeight, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    SDL_Window* window = SDL_CreateWindow("SDL Minimal Sample", windowStartWidth, windowStartHeight, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_VULKAN);
 
     if (window == nullptr) {
         return SDL_Fail();
-    }    
-    
-    VkApplicationInfo appInfo = {};
-    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "SettleAndSurvive";
-    appInfo.pEngineName = "Presto";
-
-    VkInstanceCreateInfo instanceInfo = {};
-    instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    instanceInfo.pApplicationInfo = &appInfo;
-
-    VkInstance instance;
-
-    VkResult result = vkCreateInstance(&instanceInfo, 0, &instance);
-
-    if (result == VK_SUCCESS) {
-        std::cout << "Successfully created vulkan instance" << std::endl;
     }
 
-    return SDL_APP_CONTINUE; 
+    graphics_memory = malloc(sizeof(Graphics));
+
+    if (graphics_memory == nullptr){
+        return SDL_Fail();
+    }
+
+    graphics = new (graphics_memory) Graphics();
+
+    if (graphics ->init(window) == EXIT_FAILURE) {
+        return SDL_Fail();
+    }
+
+    graphics->select_device();
+
+    return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
@@ -64,4 +62,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     // Your cleanup code here
+    SDL_Window* window = graphics->release();
+    free(graphics_memory);
+    SDL_DestroyWindow(window);
 }
