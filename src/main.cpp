@@ -9,7 +9,7 @@
 
 using namespace std;
 
-constexpr uint32_t windowStartWidth = 400;
+constexpr uint32_t windowStartWidth = 800;
 constexpr uint32_t windowStartHeight = 400;
 void *graphics_memory = nullptr;
 Graphics *graphics = nullptr;
@@ -44,6 +44,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     }
 
     graphics->select_device();
+    graphics->setup_pipeline();
 
     return SDL_APP_CONTINUE;
 }
@@ -52,6 +53,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     if (event->type == SDL_EVENT_QUIT) {
         return SDL_APP_SUCCESS; // Safely exits the app
     }
+
     return SDL_APP_CONTINUE;
 }
 

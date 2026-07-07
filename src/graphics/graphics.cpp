@@ -373,6 +373,9 @@ VkResult createSwapchain(
     VkDevice device,
     VkSurfaceKHR surface,
     VkSwapchainKHR *swap_chain,
+    vector<VkImage> *swap_chain_images,
+    VkFormat *swap_chain_image_format,
+    VkExtent2D *swap_chain_extent,
     SDL_Window *window
 ) {
     VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainDetails->formats);
@@ -412,7 +415,55 @@ VkResult createSwapchain(
     swapchainInfo.clipped = VK_TRUE;
     swapchainInfo.oldSwapchain = VK_NULL_HANDLE;
 
-    return vkCreateSwapchainKHR(device, &swapchainInfo, nullptr, swap_chain);
+    VkResult result = vkCreateSwapchainKHR(device, &swapchainInfo, nullptr, swap_chain);
+
+    if (result == VK_SUCCESS) {
+        uint32_t image_count = 0;
+        vkGetSwapchainImagesKHR(device, *swap_chain, &image_count, nullptr);
+        swap_chain_images->resize(image_count);
+        vkGetSwapchainImagesKHR(device, *swap_chain, &image_count, swap_chain_images->data());
+
+        *swap_chain_image_format = surfaceFormat.format;
+        *swap_chain_extent = extent;
+    }
+
+    return result;
+}
+
+VkResult createImageViews(
+    VkDevice device,
+    vector<VkImage> *swap_chain_images,
+    vector<VkImageView> *swap_chain_image_views,
+    VkFormat *swap_chain_image_format
+) {
+    VkResult overall_result = VK_SUCCESS;
+    swap_chain_image_views->resize(swap_chain_images->size());
+
+    for (size_t i = 0; i < swap_chain_images->size(); i++) {
+        VkImageViewCreateInfo createInfo {};
+
+        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        createInfo.image = swap_chain_images->at(i);
+        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        createInfo.format = *swap_chain_image_format;
+        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        createInfo.subresourceRange.baseMipLevel = 0;
+        createInfo.subresourceRange.levelCount = 1;
+        createInfo.subresourceRange.baseArrayLayer = 0;
+        createInfo.subresourceRange.layerCount = 1;
+
+        VkResult result = vkCreateImageView(device, &createInfo, nullptr, &swap_chain_image_views->at(i));
+
+        if (result != VK_SUCCESS && overall_result == VK_SUCCESS) {
+            overall_result = result;
+        }
+    }
+
+    return overall_result;
 }
 
 /*
@@ -451,12 +502,36 @@ int Graphics::select_device() {
     vkGetDeviceQueue(this->logical_device, device_infos.indicies.graphics_index.value(), 0, &this->graphics_queue);
     vkGetDeviceQueue(this->logical_device, device_infos.indicies.presentation_index.value(), 0, &this->presentation_queue);
 
-    VkResult swapchainResult = createSwapchain(&swapChainSupport, &device_infos, this->logical_device, this->surface, &this->swap_chain, this->window);
+    VkResult swapchainResult = createSwapchain(
+        &swapChainSupport,
+        &device_infos,
+        this->logical_device,
+        this->surface,
+        &this->swap_chain,
+        &this->swap_chain_images,
+        &this->swap_chain_image_format,
+        &this->swap_chain_extent,
+        this->window
+    );
 
     if (swapchainResult == VK_SUCCESS) {
         cout << "Successfully created vulkan swapchain" << endl;
     } else {
         cout << "Could not create swapchain" << endl;
+        return EXIT_FAILURE;
+    }
+
+    VkResult imageViews = createImageViews(
+        this->logical_device,
+        &this->swap_chain_images,
+        &this->swap_chain_image_views,
+        &this->swap_chain_image_format
+    );
+
+    if (imageViews == VK_SUCCESS) {
+        cout << "Successfully created vulkan image views" << endl;
+    } else {
+        cout << "Could not create an image view" << endl;
         return EXIT_FAILURE;
     }
 
@@ -466,8 +541,8 @@ int Graphics::select_device() {
 /*
  * Sets up image related resources
  */
-int Graphics::setup_image() {
-    return 0;
+int Graphics::setup_pipeline() {
+    return EXIT_SUCCESS;
 }
 
 /*
@@ -477,6 +552,10 @@ SDL_Window *Graphics::release() {
     SDL_Window *tempWindow = this->window;
 
     if (this->window != nullptr) {
+        for (auto image_view : this->swap_chain_image_views) {
+            vkDestroyImageView(this->logical_device, image_view, nullptr);
+        }
+
         vkDestroySwapchainKHR(this->logical_device, this->swap_chain, nullptr);
         vkDestroyDevice(this->logical_device, nullptr);
         vkDestroySurfaceKHR(this->instance, this->surface, nullptr);
