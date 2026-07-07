@@ -13,6 +13,7 @@ class Graphics {
         VkDevice logical_device;
         VkQueue graphics_queue;
         VkQueue presentation_queue;
+        VkSwapchainKHR swap_chain;
 
     public:
         Graphics();
