@@ -1,6 +1,7 @@
 #include <iostream>
 #include <optional>
 #include <vector>
+#include <set>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
@@ -11,7 +12,10 @@ using namespace std;
 Graphics::Graphics() {
     this->window = NULL;
     this->instance = {};
+    this->surface = {};
     this->logical_device = {};
+    this->graphics_queue = {};
+    this->presentation_queue = {};
 }
 
 bool checkValidationLayerSupport(
@@ -113,11 +117,20 @@ int Graphics::init(SDL_Window *window) {
         return EXIT_FAILURE;
     }
 
+    bool windowCreated = SDL_Vulkan_CreateSurface(window, this->instance, nullptr, &this->surface);
+
+    if (windowCreated) {
+        cout << "Successfully created vulkan surface" << endl;
+    } else {
+        return EXIT_FAILURE;
+    }
+
     return EXIT_SUCCESS;
 }
 
-int getSuitableDeviceGraphicsQueue(
-    VkPhysicalDevice device
+QueueFamilyIndicies getSuitableDeviceGraphicsQueue(
+    VkPhysicalDevice device,
+    VkSurfaceKHR *surface
 ) {
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
@@ -137,18 +150,26 @@ int getSuitableDeviceGraphicsQueue(
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
-    int index = -1;
+    QueueFamilyIndicies indexes = {};
+
     int i = 0;
 
     for (const auto& queueFamily : queueFamilies) {
+        VkBool32 presentationSupported = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, *surface, &presentationSupported);
+
+        if (presentationSupported) {
+            indexes.presentation_index = i;
+        }
+
         if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            index = i;
+            indexes.graphics_index = i;
         }
 
         i++;
     }
 
-    return index;
+    return indexes;
 }
 
 /*
@@ -167,36 +188,43 @@ int Graphics::select_device() {
     vkEnumeratePhysicalDevices(this->instance, &device_count, devices.data());
 
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    int graphics_index = -1;
+    QueueFamilyIndicies indices;
 
     for (const auto& device : devices) {
-        graphics_index = getSuitableDeviceGraphicsQueue(device);
+        indices = getSuitableDeviceGraphicsQueue(device, &this->surface);
 
-        if (graphics_index != -1) {
+        if (indices.graphics_index.has_value() && indices.presentation_index.has_value()) {
             physicalDevice = device;
             break;
         }
     }
 
-    if (physicalDevice == VK_NULL_HANDLE || graphics_index == -1) {
+    if (physicalDevice == VK_NULL_HANDLE || !indices.graphics_index.has_value() || !indices.presentation_index.has_value()) {
         cout << "Failed to find a suitable GPU!" << endl;
         return EXIT_FAILURE;
     }
 
+    vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+    set<uint32_t> uniqueQueueFamilies = { indices.graphics_index.value(), indices.presentation_index.value() };
+
     float priority = 1.0f;
 
-    VkDeviceQueueCreateInfo queueCreateInfo {};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = graphics_index;
-    queueCreateInfo.queueCount = 1;
-    queueCreateInfo.pQueuePriorities = &priority;
+    for (uint32_t queueFamily : uniqueQueueFamilies) {
+        VkDeviceQueueCreateInfo queueCreateInfo {};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = queueFamily;
+        queueCreateInfo.queueCount = 1;
+        queueCreateInfo.pQueuePriorities = &priority;
+
+        queueCreateInfos.push_back(queueCreateInfo);
+    }
 
     VkPhysicalDeviceFeatures deviceFeatures {};
 
     VkDeviceCreateInfo createInfo {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.pQueueCreateInfos = &queueCreateInfo;
-    createInfo.queueCreateInfoCount = 1;
+    createInfo.pQueueCreateInfos = queueCreateInfos.data();
+    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     createInfo.pEnabledFeatures = &deviceFeatures;
 
     VkResult result = vkCreateDevice(physicalDevice, &createInfo, nullptr, &this->logical_device);
@@ -207,7 +235,8 @@ int Graphics::select_device() {
         return EXIT_FAILURE;
     }
 
-    vkGetDeviceQueue(this->logical_device, graphics_index, 0, &this->graphics_queue);
+    vkGetDeviceQueue(this->logical_device, indices.graphics_index.value(), 0, &this->graphics_queue);
+    vkGetDeviceQueue(this->logical_device, indices.presentation_index.value(), 0, &this->presentation_queue);
 
     return EXIT_SUCCESS;
 }
@@ -220,10 +249,13 @@ SDL_Window *Graphics::release() {
 
     if (this->window != nullptr) {
         vkDestroyDevice(this->logical_device, nullptr);
+        vkDestroySurfaceKHR(this->instance, this->surface, nullptr);
         vkDestroyInstance(this->instance, nullptr);
 
         this->instance = {};
         this->logical_device = {};
+        this->graphics_queue = {};
+        this->presentation_queue = {};
     }
 
     this->window = nullptr;
