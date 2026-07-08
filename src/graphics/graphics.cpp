@@ -486,6 +486,10 @@ int Graphics::select_device() {
         return EXIT_FAILURE;
     }
 
+    this->device = device_infos.device;
+    this->graphics_index = device_infos.indicies.graphics_index.value();
+    this->presentation_index = device_infos.indicies.presentation_index.value();
+
     QueuesInfo queue_infos = selectQueues(device_infos);
 
     VkPhysicalDeviceFeatures deviceFeatures {};
@@ -657,7 +661,7 @@ VkResult createRenderPass(
 }
 
 /*
- * Sets up image related resources
+ * Sets up graphics pipeline related resources
  */
 int Graphics::setup_pipeline() {
     ShaderDetails shaderDetails = loadShaders(this->logical_device);
@@ -802,6 +806,208 @@ int Graphics::setup_pipeline() {
     return EXIT_SUCCESS;
 }
 
+VkResult create_framebuffers(
+    VkDevice device,
+    VkRenderPass *render_pass,
+    VkExtent2D *swap_chain_extent,
+    vector<VkImageView> *swap_chain_image_views,
+    vector<VkFramebuffer> *swap_chain_framebuffers
+) {
+    swap_chain_framebuffers->resize(swap_chain_image_views->size());
+
+    for (size_t i = 0; i < swap_chain_image_views->size(); i++) {
+        VkImageView attachments[] = {
+            swap_chain_image_views->at(i)
+        };
+
+        VkFramebufferCreateInfo framebufferInfo{};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = *render_pass;
+        framebufferInfo.attachmentCount = 1;
+        framebufferInfo.pAttachments = attachments;
+        framebufferInfo.width = swap_chain_extent->width;
+        framebufferInfo.height = swap_chain_extent->height;
+        framebufferInfo.layers = 1;
+
+        VkResult framebufferResult = vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swap_chain_framebuffers->at(i));
+
+        if (framebufferResult != VK_SUCCESS) {
+            cout << "Could not create framebuffer" << endl;
+            return framebufferResult;
+        } else {
+            cout << "Successfully created a framebuffer" << endl;
+        }
+    }
+
+    return VK_SUCCESS;
+}
+
+/*
+ * Sets up image related resources
+ */
+int Graphics::setup_draw_resources() {
+    VkResult framebuffersResult = create_framebuffers(
+        this->logical_device,
+        &this->render_pass,
+        &this->swap_chain_extent,
+        &this->swap_chain_image_views,
+        &this->swap_chain_framebuffers
+    );
+
+    VkCommandPoolCreateInfo poolInfo {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    poolInfo.queueFamilyIndex = this->graphics_index.value();
+
+    VkResult commandPoolResult = vkCreateCommandPool(this->logical_device, &poolInfo, nullptr, &this->command_pool);
+
+    if (commandPoolResult != VK_SUCCESS) {
+        cout << "Could not create command pool" << endl;
+        return EXIT_FAILURE;
+    } else {
+        cout << "Successfully created a command pool" << endl;
+    }
+
+    VkCommandBufferAllocateInfo allocInfo {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = this->command_pool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = 1;
+
+    VkResult commandBuffer = vkAllocateCommandBuffers(this->logical_device, &allocInfo, &this->command_buffer);
+
+    if (commandBuffer != VK_SUCCESS) {
+        cout << "Could not create command buffer" << endl;
+        return EXIT_FAILURE;
+    } else {
+        cout << "Successfully created a command buffer" << endl;
+    }
+
+    VkSemaphoreCreateInfo semaphoreInfo {};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    // Start signaled so the first frame is considered ready to proceed
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    // We might not need to recreate these each time
+    if (vkCreateSemaphore(this->logical_device, &semaphoreInfo, nullptr, &this->image_available_semaphore) != VK_SUCCESS ||
+        vkCreateSemaphore(this->logical_device, &semaphoreInfo, nullptr, &this->render_finished_semaphore) != VK_SUCCESS ||
+        vkCreateFence(this->logical_device, &fenceInfo, nullptr, &this->in_flight_fence) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create sync objects!");
+    }
+
+    return EXIT_SUCCESS;
+}
+
+/*
+ * Begins a render pass
+ */
+void Graphics::begin_render_pass() {
+    // Wait for previous use of frame resources before using them again
+    vkWaitForFences(this->logical_device, 1, &this->in_flight_fence, VK_TRUE, UINT64_MAX);
+    vkResetFences(this->logical_device, 1, &this->in_flight_fence);
+
+    vkAcquireNextImageKHR(
+        this->logical_device,
+        this->swap_chain,
+        UINT64_MAX,
+        this->image_available_semaphore,
+        VK_NULL_HANDLE,
+        &this->image_index
+    );
+
+    vkResetCommandBuffer(this->command_buffer, 0);
+
+    VkCommandBufferBeginInfo beginInfo {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0; // Optional
+    beginInfo.pInheritanceInfo = nullptr; // Optional
+
+    if (vkBeginCommandBuffer(this->command_buffer, &beginInfo) != VK_SUCCESS) {
+        throw runtime_error("Failed to begin recording command buffer!");
+    }
+
+    VkRenderPassBeginInfo renderPassInfo {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = this->render_pass;
+    renderPassInfo.framebuffer = this->swap_chain_framebuffers[this->image_index];
+    renderPassInfo.renderArea.offset = { 0, 0 };
+    renderPassInfo.renderArea.extent = this->swap_chain_extent;
+
+    VkClearValue clearColor = {{{ 0.0f, 0.0f, 0.0f, 1.0f }}};
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = &clearColor;
+
+    vkCmdBeginRenderPass(this->command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(this->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, this->graphics_pipeline);
+
+    VkViewport viewport {};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(this->swap_chain_extent.width);
+    viewport.height = static_cast<float>(this->swap_chain_extent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(this->command_buffer, 0, 1, &viewport);
+
+    VkRect2D scissor {};
+    scissor.offset = {0, 0};
+    scissor.extent = this->swap_chain_extent;
+    vkCmdSetScissor(this->command_buffer, 0, 1, &scissor);
+}
+
+/*
+ * Draws objects during a render pass
+ */
+void Graphics::draw() {
+    vkCmdDraw(this->command_buffer, 3, 1, 0, 0);
+}
+
+/*
+ * Ends a render pass
+ */
+void Graphics::end_render_pass() {
+    vkCmdEndRenderPass(this->command_buffer);
+
+    if (vkEndCommandBuffer(this->command_buffer) != VK_SUCCESS) {
+        throw runtime_error("Failed to record command buffer!");
+    }
+
+    VkSubmitInfo submitInfo {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore waitSemaphores[] = { this->image_available_semaphore };
+    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.pWaitDstStageMask = waitStages;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &this->command_buffer;
+
+    VkSemaphore signalSemaphores[] = { this->render_finished_semaphore };
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = signalSemaphores;
+
+    if (vkQueueSubmit(this->graphics_queue, 1, &submitInfo, this->in_flight_fence) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to submit draw command buffer!");
+    }
+
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = signalSemaphores;
+
+    VkSwapchainKHR swapChains[] = { this->swap_chain };
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = swapChains;
+    presentInfo.pImageIndices = &this->image_index;
+    presentInfo.pResults = nullptr; // Optional
+
+    vkQueuePresentKHR(this->presentation_queue, &presentInfo);
+}
+
 /*
  * Gives ownership of window back to the caller
  */
@@ -809,6 +1015,17 @@ SDL_Window *Graphics::release() {
     SDL_Window *tempWindow = this->window;
 
     if (this->window != nullptr) {
+        vkDeviceWaitIdle(this->logical_device);
+        vkDestroySemaphore(this->logical_device, this->image_available_semaphore, nullptr);
+        vkDestroySemaphore(this->logical_device, this->render_finished_semaphore, nullptr);
+        vkDestroyFence(this->logical_device, this->in_flight_fence, nullptr);
+
+        vkDestroyCommandPool(this->logical_device, this->command_pool, nullptr);
+
+        for (auto framebuffer : this->swap_chain_framebuffers) {
+            vkDestroyFramebuffer(this->logical_device, framebuffer, nullptr);
+        }
+
         vkDestroyPipeline(this->logical_device, this->graphics_pipeline, nullptr);
         vkDestroyPipelineLayout(this->logical_device, this->pipeline_layout, nullptr);
         vkDestroyRenderPass(this->logical_device, this->render_pass, nullptr);

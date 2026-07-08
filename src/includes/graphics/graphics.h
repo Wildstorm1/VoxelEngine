@@ -10,6 +10,9 @@ using namespace std;
 
 class Graphics {
     private:
+        optional<uint32_t> graphics_index;
+        optional<uint32_t> presentation_index;
+        VkPhysicalDevice device;
         SDL_Window *window;
         VkInstance instance;
         VkSurfaceKHR surface;
@@ -24,6 +27,13 @@ class Graphics {
         VkRenderPass render_pass;
         VkPipelineLayout pipeline_layout;
         VkPipeline graphics_pipeline;
+        vector<VkFramebuffer> swap_chain_framebuffers;
+        VkCommandPool command_pool;
+        VkCommandBuffer command_buffer;
+        VkSemaphore image_available_semaphore;
+        VkSemaphore render_finished_semaphore;
+        VkFence in_flight_fence;
+        uint32_t image_index;
 
     public:
         Graphics();
@@ -31,5 +41,9 @@ class Graphics {
         int init(SDL_Window *window);
         int select_device();
         int setup_pipeline();
+        int setup_draw_resources();
+        void begin_render_pass();
+        void draw();
+        void end_render_pass();
         SDL_Window *release();
 };
