@@ -29,11 +29,12 @@ class Graphics {
         VkPipeline graphics_pipeline;
         vector<VkFramebuffer> swap_chain_framebuffers;
         VkCommandPool command_pool;
-        VkCommandBuffer command_buffer;
-        VkSemaphore image_available_semaphore;
-        VkSemaphore render_finished_semaphore;
-        VkFence in_flight_fence;
+        vector<VkCommandBuffer> command_buffers;
+        vector<VkSemaphore> image_available_semaphores;
+        vector<VkSemaphore> render_finished_semaphores;
+        vector<VkFence> in_flight_fences;
         uint32_t image_index;
+        uint32_t frame_index;
 
     public:
         Graphics();
