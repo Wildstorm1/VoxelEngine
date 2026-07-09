@@ -5,20 +5,17 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
+#include "./vulkan_instance_private.h"
+#include "./vulkan_device_private.h"
 
 using namespace std;
 
 class Graphics {
     private:
-        optional<uint32_t> graphics_index;
-        optional<uint32_t> presentation_index;
-        VkPhysicalDevice device;
+        VulkanInstance instance;
+        VulkanDevice device;
+
         SDL_Window *window;
-        VkInstance instance;
-        VkSurfaceKHR surface;
-        VkDevice logical_device;
-        VkQueue graphics_queue;
-        VkQueue presentation_queue;
         VkSwapchainKHR swap_chain;
         vector<VkImage> swap_chain_images;
         vector<VkImageView> swap_chain_image_views;
@@ -43,6 +40,7 @@ class Graphics {
         int select_device();
         int setup_pipeline();
         int setup_draw_resources();
+        int resize_window();
         void begin_render_pass();
         void draw();
         void end_render_pass();

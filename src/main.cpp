@@ -38,14 +38,17 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     }
 
     graphics = new (graphics_memory) Graphics();
+    int initResult = graphics->init(window);
 
-    if (graphics -> init(window) == EXIT_FAILURE) {
+    if (initResult == EXIT_FAILURE) {
         return SDL_Fail();
     }
 
+    /*
     graphics->select_device();
     graphics->setup_pipeline();
     graphics->setup_draw_resources();
+    */
 
     return SDL_APP_CONTINUE;
 }
@@ -60,9 +63,11 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 
 SDL_AppResult SDL_AppIterate(void *appstate) {
     // Your game loop / rendering code here
+    /*
     graphics->begin_render_pass();
     graphics->draw();
     graphics->end_render_pass();
+    */
 
     return SDL_APP_CONTINUE;
 }
