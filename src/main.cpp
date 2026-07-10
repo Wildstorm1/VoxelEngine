@@ -45,8 +45,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         return SDL_Fail();
     }
 
-    graphics->setup_draw_resources();
-
     return SDL_APP_CONTINUE;
 }
 

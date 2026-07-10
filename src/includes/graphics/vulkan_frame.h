@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vulkan/vulkan.h>
+#include "./vulkan_image_private.h"
+#include "./vulkan_device_private.h"
 #include "./frame.h"
 
 typedef int FrameResult;
@@ -12,11 +15,22 @@ using namespace std;
 /*
  * Module defines vulkan specific implementation for
  */
-class VulkanFrame : Frame {
+class VulkanFrame : public Frame {
     private:
+        VulkanDevice *device;
+        VulkanImage *image;
+        VkCommandPool command_pool;
+        VkCommandBuffer command_buffer;
+        VkSemaphore image_available_semaphore;
+        VkFence in_flight_fence;
+        uint32_t image_index;
 
     public:
-        VulkanFrame();
+        VulkanFrame(
+            VulkanDevice *device,
+            VulkanImage *image,
+            VkCommandPool command_pool
+        );
 
         FrameResult init();
 

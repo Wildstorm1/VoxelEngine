@@ -21,6 +21,7 @@ VulkanImage::VulkanImage() {
     this->swap_chain = {};
     this->swap_chain_images = {};
     this->swap_chain_image_views = {};
+    this->render_framebuffer_semaphores = {};
     this->swap_chain_image_format = {};
     this->swap_chain_extent = {};
     this->render_pass = {};
@@ -520,6 +521,19 @@ VulkanImageResult VulkanImage::init(
         cout << "Successfully created vulkan pipeline resources" << endl;
     }
 
+    VkSemaphoreCreateInfo semaphoreInfo {};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    this->render_framebuffer_semaphores.resize(this->swap_chain_image_views.size());
+
+    for (size_t i = 0; i < this->swap_chain_image_views.size(); i++) {
+        if (
+            vkCreateSemaphore(device->get_device(), &semaphoreInfo, nullptr, &this->render_framebuffer_semaphores[i]) != VK_SUCCESS
+        ) {
+            throw std::runtime_error("Failed to create sync objects!");
+        }
+    }
+
     return draw_pipeline;
 }
 
@@ -535,6 +549,10 @@ VkRenderPass VulkanImage::get_render_pass() {
     return this->render_pass;
 }
 
+VkSemaphore VulkanImage::get_framebuffer_semaphore(size_t i) {
+    return this->render_framebuffer_semaphores[i];
+}
+
 VkFramebuffer VulkanImage::get_framebuffer(size_t i) {
     return this->swap_chain_framebuffers[i];
 }
@@ -543,13 +561,15 @@ VkPipeline VulkanImage::get_graphics_pipeline() {
     return this->graphics_pipeline;
 }
 
-size_t VulkanImage::get_number_of_images() {
-    return this->swap_chain_image_views.size();
-}
-
 void VulkanImage::destroy(
     VulkanDevice *device
 ) {
+    vkDeviceWaitIdle(device->get_device());
+
+    for (size_t i = 0; i < this->swap_chain_image_views.size(); i++) {
+        vkDestroySemaphore(device->get_device(), this->render_framebuffer_semaphores[i], nullptr);
+    }
+
     vkDestroyPipeline(device->get_device(), this->graphics_pipeline, nullptr);
     vkDestroyPipelineLayout(device->get_device(), this->pipeline_layout, nullptr);
 
