@@ -120,7 +120,18 @@ int Graphics::setup_draw_resources() {
  * Sets up graphics pipeline related resources
  */
 int Graphics::resize_window() {
-    // Destroy and re-create the image
+    vkDeviceWaitIdle(this->device.get_device());
+    this->image.destroy(&this->device);
+
+    this->device.query_device_information();
+
+    this->image = VulkanImage::VulkanImage();
+    VulkanImageResult image_result = this->image.init(window, &this->device);
+
+    if (image_result != VULKAN_IMAGE_INIT_SUCCESS) {
+        return EXIT_FAILURE;
+    }
+
     return EXIT_SUCCESS;
 }
 
@@ -132,7 +143,7 @@ void Graphics::begin_render_pass() {
     vkWaitForFences(this->device.get_device(), 1, &this->in_flight_fences[this->frame_index], VK_TRUE, UINT64_MAX);
     vkResetFences(this->device.get_device(), 1, &this->in_flight_fences[this->frame_index]);
 
-    vkAcquireNextImageKHR(
+    VkResult next_image_result = vkAcquireNextImageKHR(
         this->device.get_device(),
         this->image.get_swapchain(),
         UINT64_MAX,
@@ -140,6 +151,11 @@ void Graphics::begin_render_pass() {
         VK_NULL_HANDLE,
         &this->image_index
     );
+
+    if (next_image_result == VK_ERROR_OUT_OF_DATE_KHR) {
+        cout << "Image swapchain is out of date [next image]" << endl;
+        //this->resize_window();
+    }
 
     vkResetCommandBuffer(this->command_buffers[this->frame_index], 0);
 
@@ -228,7 +244,13 @@ void Graphics::end_render_pass() {
     presentInfo.pImageIndices = &this->image_index;
     presentInfo.pResults = nullptr; // Optional
 
-    vkQueuePresentKHR(this->device.get_presentation_queue(), &presentInfo);
+    VkResult present_image_result = vkQueuePresentKHR(this->device.get_presentation_queue(), &presentInfo);
+
+    if (present_image_result == VK_ERROR_OUT_OF_DATE_KHR || present_image_result == VK_SUBOPTIMAL_KHR) {
+        cout << "Image swapchain is out of date [queue]" << endl;
+        //this->resize_window();
+    }
+
     this->frame_index = (this->frame_index + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 

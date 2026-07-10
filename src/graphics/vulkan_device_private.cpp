@@ -247,6 +247,19 @@ VulkanDeviceResult VulkanDevice::init(SDL_Window *window) {
     return VULKAN_DEVICE_INIT_SUCCESS;
 }
 
+VulkanDeviceResult VulkanDevice::query_device_information() {
+    VkPhysicalDeviceProperties device_properties;
+    vkGetPhysicalDeviceProperties(this->device_info->device, &device_properties);
+    this->device_info->properties = device_properties;
+
+    VkPhysicalDeviceFeatures device_features;
+    vkGetPhysicalDeviceFeatures(this->device_info->device, &device_features);
+    this->device_info->features = device_features;
+
+    query_surface_support(this->device_info, this->surface);
+    return VULKAN_DEVICE_QUERY_SUCCESS;
+}
+
 VkDevice VulkanDevice::get_device() {
     return this->logical_device;
 }

@@ -9,6 +9,8 @@ typedef int VulkanDeviceResult;
 
 #define VULKAN_DEVICE_INIT_SUCCESS 0
 #define VULKAN_DEVICE_INIT_FAILURE 1
+#define VULKAN_DEVICE_QUERY_SUCCESS 0
+#define VULKAN_DEVICE_QUERY_FAILURE 1
 
 using namespace std;
 
@@ -48,6 +50,11 @@ class VulkanDevice {
          * Should not be invoked more than once
          */
         VulkanDeviceResult init(SDL_Window *window);
+
+        /*
+         * Query device related information again
+         */
+        VulkanDeviceResult query_device_information();
 
         /*
          * Returns a handle to the device that was created
