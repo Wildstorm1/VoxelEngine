@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
+#include "./vulkan_instance_private.h"
 
 typedef int VulkanDeviceResult;
 
@@ -12,15 +13,16 @@ typedef int VulkanDeviceResult;
 using namespace std;
 
 struct DeviceInfos {
-    VkPhysicalDeviceProperties properties;
-    VkPhysicalDeviceFeatures features;
-    optional<uint32_t> graphics_index;
-    optional<uint32_t> presentation_index;
-    VkSurfaceCapabilitiesKHR capabilities;
     vector<VkSurfaceFormatKHR> formats;
     vector<VkPresentModeKHR> present_modes;
-    VkPhysicalDevice device;
     vector<VkDeviceQueueCreateInfo> queue_infos;
+    vector<uint32_t> testing;
+    VkPhysicalDeviceProperties properties;
+    VkPhysicalDeviceFeatures features;
+    VkSurfaceCapabilitiesKHR capabilities;
+    VkPhysicalDevice device;
+    optional<uint32_t> graphics_index;
+    optional<uint32_t> presentation_index;
     uint32_t device_score;
 };
 
@@ -31,7 +33,7 @@ struct DeviceInfos {
 class VulkanDevice {
     private:
         VulkanInstance instance;
-        DeviceInfos device_info;
+        DeviceInfos* device_info;
         VkSurfaceKHR surface;
         VkDevice logical_device;
         VkQueue graphics_queue;
@@ -54,7 +56,23 @@ class VulkanDevice {
          * any handles be used after destroy. Should not be called until
          * after init has been invoked
          */
-        VkDevice device();
+        VkDevice get_device();
+
+        /*
+         * Returns device related information
+         *
+         * Should not be invoked after destroy, nor should any handles be used
+         * after destroy
+         */
+        DeviceInfos* get_device_info();
+
+        /*
+         * Returns the created vulkan surface
+         *
+         * Should not be invoked after destroy, nor should any handles be used
+         * after destroy
+         */
+        VkSurfaceKHR get_surface();
 
         /*
          * Frees the device

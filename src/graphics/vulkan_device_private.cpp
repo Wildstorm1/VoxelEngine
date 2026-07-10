@@ -47,22 +47,25 @@ void query_surface_support(
     DeviceInfos *device_infos,
     VkSurfaceKHR surface
 ) {
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device_infos->device, surface, & device_infos->capabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device_infos->device, surface, &device_infos->capabilities);
 
     uint32_t formatCount;
     vkGetPhysicalDeviceSurfaceFormatsKHR(device_infos->device, surface, &formatCount, nullptr);
-
+        
     if (formatCount != 0) {
-        device_infos->formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device_infos->device, surface, &formatCount, device_infos->formats.data());
+        vector<VkSurfaceFormatKHR> formats_vec;
+        formats_vec.resize(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device_infos->device, surface, &formatCount, formats_vec.data());
+        device_infos->formats = formats_vec;
     }
 
     uint32_t presentModeCount;
     vkGetPhysicalDeviceSurfacePresentModesKHR(device_infos->device, surface, &presentModeCount, nullptr);
 
     if (presentModeCount != 0) {
-        device_infos->present_modes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device_infos->device, surface, &presentModeCount, device_infos->present_modes.data());
+        vector<VkPresentModeKHR> modes_vec;
+        modes_vec.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device_infos->device, surface, &presentModeCount, modes_vec.data());
     }
 }
 
@@ -95,8 +98,7 @@ void select_device_queues(
     }
 }
 
-
-DeviceInfos select_physical_device(
+DeviceInfos* select_physical_device(
     VkInstance instance,
     VkSurfaceKHR surface
 ) {
@@ -111,7 +113,7 @@ DeviceInfos select_physical_device(
     vector<VkPhysicalDevice> devices(device_count);
     vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
 
-    unordered_map<VkPhysicalDevice, DeviceInfos> device_scores;
+    unordered_map<VkPhysicalDevice, DeviceInfos*> device_scores;
 
     for (const auto& physical_device : devices) {
         VkPhysicalDeviceProperties device_properties;
@@ -123,39 +125,49 @@ DeviceInfos select_physical_device(
         cout << "\t Found Device: " << device_properties.deviceName << endl;
         cout << "\t\t Device Type: " << device_properties.deviceType << endl;
 
-        device_scores[physical_device] = {};
-        device_scores[physical_device].device = physical_device;
-        device_scores[physical_device].properties = device_properties;
-        device_scores[physical_device].features = device_features;
+        DeviceInfos* heap_infos = new DeviceInfos();
+        device_scores[physical_device] = heap_infos;
+        heap_infos->device = physical_device;
+        heap_infos->properties = device_properties;
+        heap_infos->features = device_features;
+        heap_infos->device_score = 0;
 
         if (device_properties.deviceType == VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-            device_scores[physical_device].device_score = device_scores[physical_device].device_score + 1000;
+            device_scores[physical_device]->device_score = device_scores[physical_device]->device_score + 1000;
         }
 
         if (device_supports_required_extensions(physical_device)) {
-            device_scores[physical_device].device_score = device_scores[physical_device].device_score + 100;
+            device_scores[physical_device]->device_score = device_scores[physical_device]->device_score + 100;
         }
 
-        query_surface_support(&device_scores[physical_device], surface);
-
-        if (!device_scores[physical_device].formats.empty() && !device_scores[physical_device].present_modes.empty()) {
-            device_scores[physical_device].device_score = device_scores[physical_device].device_score + 100;
+        query_surface_support(device_scores[physical_device], surface);
+        
+        if (!device_scores[physical_device]->formats.empty() && !device_scores[physical_device]->present_modes.empty()) {
+            device_scores[physical_device]->device_score = device_scores[physical_device]->device_score + 100;
         }
 
-        select_device_queues(&device_scores[physical_device], physical_device, surface);
+        select_device_queues(device_scores[physical_device], physical_device, surface);
 
-        if (device_scores[physical_device].graphics_index.has_value() && device_scores[physical_device].presentation_index.has_value()) {
-            device_scores[physical_device].device_score = device_scores[physical_device].device_score + 250;
+        if (device_scores[physical_device]->graphics_index.has_value() && device_scores[physical_device]->presentation_index.has_value()) {
+            device_scores[physical_device]->device_score = device_scores[physical_device]->device_score + 250;
         }
 
-        cout << "\t\t Device Score: " << device_scores[physical_device].device_score << endl;
+        cout << "\t\t Device Score: " << device_scores[physical_device]->device_score << endl;
     }
 
-    DeviceInfos best_device = {};
+    DeviceInfos* best_device;
+    uint32_t best_score = 0;
 
     for (const auto& [key, value] : device_scores) {
-        if (value.device_score >= best_device.device_score) {
+        if (value->device_score >= best_score) {
             best_device = value;
+            best_score = value->device_score;
+        }
+    }
+
+    for (const auto& [key, value] : device_scores) {
+        if (best_device != value) {
+            free(value);
         }
     }
 
@@ -201,26 +213,26 @@ VulkanDeviceResult VulkanDevice::init(SDL_Window *window) {
 
     this->device_info = select_physical_device(this->instance.instance(), this->surface);
 
-    if (this->device_info.device == VK_NULL_HANDLE) {
+    if (this->device_info->device == VK_NULL_HANDLE) {
         cout << "Failed device selection" << endl;
         return VULKAN_DEVICE_INIT_FAILURE;
     } else {
-        cout << "Selected device: " << this->device_info.properties.deviceName << endl;
+        cout << "Selected device: " << this->device_info->properties.deviceName << endl;
     }
 
-    fill_in_queue_info(&this->device_info);
+    fill_in_queue_info(this->device_info);
 
     VkPhysicalDeviceFeatures deviceFeatures {};
 
     VkDeviceCreateInfo createInfo {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.pQueueCreateInfos = this->device_info.queue_infos.data();
-    createInfo.queueCreateInfoCount = static_cast<uint32_t>(this->device_info.queue_infos.size());
+    createInfo.pQueueCreateInfos = this->device_info->queue_infos.data();
+    createInfo.queueCreateInfoCount = static_cast<uint32_t>(this->device_info->queue_infos.size());
     createInfo.pEnabledFeatures = &deviceFeatures;
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
-    VkResult device_result = vkCreateDevice(this->device_info.device, &createInfo, nullptr, &this->logical_device);
+    VkResult device_result = vkCreateDevice(this->device_info->device, &createInfo, nullptr, &this->logical_device);
 
     if (device_result == VK_SUCCESS) {
         cout << "Successfully created vulkan logical device" << endl;
@@ -229,14 +241,22 @@ VulkanDeviceResult VulkanDevice::init(SDL_Window *window) {
         return VULKAN_DEVICE_INIT_FAILURE;
     }
 
-    vkGetDeviceQueue(this->logical_device, this->device_info.graphics_index.value(), 0, &this->graphics_queue);
-    vkGetDeviceQueue(this->logical_device, this->device_info.presentation_index.value(), 0, &this->presentation_queue);
+    vkGetDeviceQueue(this->logical_device, this->device_info->graphics_index.value(), 0, &this->graphics_queue);
+    vkGetDeviceQueue(this->logical_device, this->device_info->presentation_index.value(), 0, &this->presentation_queue);
 
     return VULKAN_DEVICE_INIT_SUCCESS;
 }
 
-VkDevice VulkanDevice::device() {
+VkDevice VulkanDevice::get_device() {
     return this->logical_device;
+}
+
+DeviceInfos* VulkanDevice::get_device_info() {
+    return this->device_info;
+}
+
+VkSurfaceKHR VulkanDevice::get_surface() {
+    return this->surface;
 }
 
 void VulkanDevice::destroy() {
