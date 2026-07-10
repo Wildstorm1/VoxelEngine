@@ -38,6 +38,38 @@ class VulkanImage {
         VulkanImageResult init(SDL_Window *window, VulkanDevice *device);
 
         /*
+         * Return a handle to the swapchain, should only be called after
+         * init and before destroy
+         */
+        VkSwapchainKHR get_swapchain();
+
+        /*
+         * Return a handle to the swapchain extent
+         */
+        VkExtent2D get_swapchain_extent();
+
+        /*
+         * Return a handle to the render pass
+         */
+        VkRenderPass get_render_pass();
+
+        /*
+         * Return a handle to the i'th framebuffer
+         */
+        VkFramebuffer get_framebuffer(size_t i);
+
+        /*
+         * Return a handle to the graphics pipeline
+         */
+        VkPipeline get_graphics_pipeline();
+
+        /*
+         * Return a handle to the swapchain, should only be called after
+         * init and before destroy
+         */
+        size_t get_number_of_images();
+
+        /*
          * Frees the image related resources
          *
          * Should only be called once

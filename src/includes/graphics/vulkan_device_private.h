@@ -75,6 +75,22 @@ class VulkanDevice {
         VkSurfaceKHR get_surface();
 
         /*
+         * Returns the graphics queue
+         *
+         * Should not be invoked after destroy, nor should any handles be used
+         * after destroy
+         */
+        VkQueue get_graphics_queue();
+
+        /*
+         * Returns the presentation queue
+         *
+         * Should not be invoked after destroy, nor should any handles be used
+         * after destroy
+         */
+        VkQueue get_presentation_queue();
+
+        /*
          * Frees the device
          *
          * Should only be called once. All handles are invalid after

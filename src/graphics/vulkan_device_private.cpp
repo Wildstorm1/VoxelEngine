@@ -259,6 +259,14 @@ VkSurfaceKHR VulkanDevice::get_surface() {
     return this->surface;
 }
 
+VkQueue VulkanDevice::get_graphics_queue() {
+    return this->graphics_queue;
+}
+
+VkQueue VulkanDevice::get_presentation_queue() {
+    return this->presentation_queue;
+}
+
 void VulkanDevice::destroy() {
     vkDestroyDevice(this->logical_device, nullptr);
     vkDestroySurfaceKHR(this->instance.instance(), this->surface, nullptr);

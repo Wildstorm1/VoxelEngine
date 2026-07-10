@@ -523,6 +523,30 @@ VulkanImageResult VulkanImage::init(
     return draw_pipeline;
 }
 
+VkSwapchainKHR VulkanImage::get_swapchain() {
+    return this->swap_chain;
+}
+
+VkExtent2D VulkanImage::get_swapchain_extent() {
+    return this->swap_chain_extent;
+}
+
+VkRenderPass VulkanImage::get_render_pass() {
+    return this->render_pass;
+}
+
+VkFramebuffer VulkanImage::get_framebuffer(size_t i) {
+    return this->swap_chain_framebuffers[i];
+}
+
+VkPipeline VulkanImage::get_graphics_pipeline() {
+    return this->graphics_pipeline;
+}
+
+size_t VulkanImage::get_number_of_images() {
+    return this->swap_chain_image_views.size();
+}
+
 void VulkanImage::destroy(
     VulkanDevice *device
 ) {

@@ -30,8 +30,6 @@ class Graphics {
         Graphics();
 
         int init(SDL_Window *window);
-        int select_device();
-        int setup_pipeline();
         int setup_draw_resources();
         int resize_window();
         void begin_render_pass();

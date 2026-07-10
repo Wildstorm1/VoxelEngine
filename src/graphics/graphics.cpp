@@ -49,32 +49,17 @@ int Graphics::init(
 }
 
 /*
- * Takes ownership over window until release
- */
-int Graphics::select_device() {
-    return EXIT_SUCCESS;
-}
-
-/*
- * Sets up graphics pipeline related resources
- */
-int Graphics::setup_pipeline() {
-    return EXIT_SUCCESS;
-}
-
-
-
-/*
  * Sets up image related resources
  */
 int Graphics::setup_draw_resources() {
-    /*
+    DeviceInfos* device_info = this->device.get_device_info();
+
     VkCommandPoolCreateInfo poolInfo {};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    poolInfo.queueFamilyIndex = this->graphics_index.value();
+    poolInfo.queueFamilyIndex = device_info->graphics_index.value();
 
-    VkResult commandPoolResult = vkCreateCommandPool(this->device.device(), &poolInfo, nullptr, &this->command_pool);
+    VkResult commandPoolResult = vkCreateCommandPool(this->device.get_device(), &poolInfo, nullptr, &this->command_pool);
 
     if (commandPoolResult != VK_SUCCESS) {
         cout << "Could not create command pool" << endl;
@@ -85,7 +70,7 @@ int Graphics::setup_draw_resources() {
 
     this->command_buffers.resize(MAX_FRAMES_IN_FLIGHT);
     this->image_available_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    this->render_finished_semaphores.resize(this->swap_chain_image_views.size());
+    this->render_finished_semaphores.resize(this->image.get_number_of_images());
     this->in_flight_fences.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkCommandBufferAllocateInfo allocInfo {};
@@ -94,7 +79,7 @@ int Graphics::setup_draw_resources() {
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = (uint32_t) this->command_buffers.size();
 
-    VkResult commandBuffer = vkAllocateCommandBuffers(this->device.device(), &allocInfo, this->command_buffers.data());
+    VkResult commandBuffer = vkAllocateCommandBuffers(this->device.get_device(), &allocInfo, this->command_buffers.data());
 
     if (commandBuffer != VK_SUCCESS) {
         cout << "Could not create command buffers" << endl;
@@ -113,21 +98,20 @@ int Graphics::setup_draw_resources() {
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         if (
-            vkCreateSemaphore(this->device.device(), &semaphoreInfo, nullptr, &this->image_available_semaphores[i]) != VK_SUCCESS ||
-            vkCreateFence(this->device.device(), &fenceInfo, nullptr, &this->in_flight_fences[i]) != VK_SUCCESS
+            vkCreateSemaphore(this->device.get_device(), &semaphoreInfo, nullptr, &this->image_available_semaphores[i]) != VK_SUCCESS ||
+            vkCreateFence(this->device.get_device(), &fenceInfo, nullptr, &this->in_flight_fences[i]) != VK_SUCCESS
         ) {
             throw std::runtime_error("Failed to create sync objects!");
         }
     }
 
-    for (size_t i = 0; i < this->swap_chain_image_views.size(); i++) {
+    for (size_t i = 0; i < this->image.get_number_of_images(); i++) {
         if (
-            vkCreateSemaphore(this->device.device(), &semaphoreInfo, nullptr, &this->render_finished_semaphores[i]) != VK_SUCCESS
+            vkCreateSemaphore(this->device.get_device(), &semaphoreInfo, nullptr, &this->render_finished_semaphores[i]) != VK_SUCCESS
         ) {
             throw std::runtime_error("Failed to create sync objects!");
         }
     }
-    */
 
     return EXIT_SUCCESS;
 }
@@ -145,13 +129,12 @@ int Graphics::resize_window() {
  */
 void Graphics::begin_render_pass() {
     // Wait for previous use of frame resources before using them again
-    /*
-    vkWaitForFences(this->device.device(), 1, &this->in_flight_fences[this->frame_index], VK_TRUE, UINT64_MAX);
-    vkResetFences(this->device.device(), 1, &this->in_flight_fences[this->frame_index]);
+    vkWaitForFences(this->device.get_device(), 1, &this->in_flight_fences[this->frame_index], VK_TRUE, UINT64_MAX);
+    vkResetFences(this->device.get_device(), 1, &this->in_flight_fences[this->frame_index]);
 
     vkAcquireNextImageKHR(
-        this->device.device(),
-        this->swap_chain,
+        this->device.get_device(),
+        this->image.get_swapchain(),
         UINT64_MAX,
         this->image_available_semaphores[this->frame_index],
         VK_NULL_HANDLE,
@@ -171,48 +154,44 @@ void Graphics::begin_render_pass() {
 
     VkRenderPassBeginInfo renderPassInfo {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = this->render_pass;
-    renderPassInfo.framebuffer = this->swap_chain_framebuffers[this->image_index];
+    renderPassInfo.renderPass = this->image.get_render_pass();
+    renderPassInfo.framebuffer = this->image.get_framebuffer(this->image_index);
     renderPassInfo.renderArea.offset = { 0, 0 };
-    renderPassInfo.renderArea.extent = this->swap_chain_extent;
+    renderPassInfo.renderArea.extent = this->image.get_swapchain_extent();
 
     VkClearValue clearColor = {{{ 0.0f, 0.0f, 0.0f, 1.0f }}};
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
     vkCmdBeginRenderPass(this->command_buffers[this->frame_index], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(this->command_buffers[this->frame_index], VK_PIPELINE_BIND_POINT_GRAPHICS, this->graphics_pipeline);
+    vkCmdBindPipeline(this->command_buffers[this->frame_index], VK_PIPELINE_BIND_POINT_GRAPHICS, this->image.get_graphics_pipeline());
 
     VkViewport viewport {};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = static_cast<float>(this->swap_chain_extent.width);
-    viewport.height = static_cast<float>(this->swap_chain_extent.height);
+    viewport.width = static_cast<float>(this->image.get_swapchain_extent().width);
+    viewport.height = static_cast<float>(this->image.get_swapchain_extent().height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(this->command_buffers[this->frame_index], 0, 1, &viewport);
 
     VkRect2D scissor {};
     scissor.offset = {0, 0};
-    scissor.extent = this->swap_chain_extent;
+    scissor.extent = this->image.get_swapchain_extent();
     vkCmdSetScissor(this->command_buffers[this->frame_index], 0, 1, &scissor);
-    */
 }
 
 /*
  * Draws objects during a render pass
  */
 void Graphics::draw() {
-    /*
     vkCmdDraw(this->command_buffers[this->frame_index], 3, 1, 0, 0);
-    */
 }
 
 /*
  * Ends a render pass
  */
 void Graphics::end_render_pass() {
-    /*
     vkCmdEndRenderPass(this->command_buffers[this->frame_index]);
 
     if (vkEndCommandBuffer(this->command_buffers[this->frame_index]) != VK_SUCCESS) {
@@ -234,7 +213,7 @@ void Graphics::end_render_pass() {
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(this->graphics_queue, 1, &submitInfo, this->in_flight_fences[this->frame_index]) != VK_SUCCESS) {
+    if (vkQueueSubmit(this->device.get_graphics_queue(), 1, &submitInfo, this->in_flight_fences[this->frame_index]) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit draw command buffer!");
     }
 
@@ -243,15 +222,14 @@ void Graphics::end_render_pass() {
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = signalSemaphores;
 
-    VkSwapchainKHR swapChains[] = { this->swap_chain };
+    VkSwapchainKHR swapChains[] = { this->image.get_swapchain() };
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = swapChains;
     presentInfo.pImageIndices = &this->image_index;
     presentInfo.pResults = nullptr; // Optional
 
-    vkQueuePresentKHR(this->presentation_queue, &presentInfo);
+    vkQueuePresentKHR(this->device.get_presentation_queue(), &presentInfo);
     this->frame_index = (this->frame_index + 1) % MAX_FRAMES_IN_FLIGHT;
-    */
 }
 
 /*
@@ -261,25 +239,21 @@ SDL_Window *Graphics::release() {
     SDL_Window *tempWindow = this->window;
 
     if (this->window != nullptr) {
-        //vkDeviceWaitIdle(this->device.device());
+        vkDeviceWaitIdle(this->device.get_device());
 
-        /*
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            vkDestroySemaphore(this->device.device(), this->image_available_semaphores[i], nullptr);
-            vkDestroyFence(this->device.device(), this->in_flight_fences[i], nullptr);
+            vkDestroySemaphore(this->device.get_device(), this->image_available_semaphores[i], nullptr);
+            vkDestroyFence(this->device.get_device(), this->in_flight_fences[i], nullptr);
         }
 
-        for (size_t i = 0; i < this->swap_chain_image_views.size(); i++) {
-            vkDestroySemaphore(this->device.device(), this->render_finished_semaphores[i], nullptr);
+        for (size_t i = 0; i < this->image.get_number_of_images(); i++) {
+            vkDestroySemaphore(this->device.get_device(), this->render_finished_semaphores[i], nullptr);
         }
 
-        vkDestroyCommandPool(this->device.device(), this->command_pool, nullptr);
-        */
+        vkDestroyCommandPool(this->device.get_device(), this->command_pool, nullptr);
+
         this->image.destroy(&this->device);
         this->device.destroy();
-
-        this->instance = {};
-        //this->swap_chain = {};
     }
 
     this->window = nullptr;
