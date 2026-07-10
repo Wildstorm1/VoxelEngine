@@ -15,13 +15,6 @@ using namespace std;
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
-struct ShaderDetails {
-    VkPipelineShaderStageCreateInfo vertex_shader;
-    VkShaderModule vertex_shader_module;
-    VkPipelineShaderStageCreateInfo fragment_shader;
-    VkShaderModule fragment_shader_module;
-};
-
 Graphics::Graphics() {
     this->window = NULL;
     this->instance = {};
@@ -62,80 +55,13 @@ int Graphics::select_device() {
     return EXIT_SUCCESS;
 }
 
-VkShaderModule createShaderModule(
-    VkDevice device,
-    const std::vector<char>& code
-) {
-    VkShaderModuleCreateInfo createInfo {};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
-
-    VkShaderModule shaderModule;
-    VkResult result = vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule);
-
-    if (result != VK_SUCCESS) {
-        throw runtime_error("failed to create shader module");
-    }
-
-    return shaderModule;
-}
-
-static vector<char> readFile(
-    const string &filename
-) {
-    ifstream file(filename, ios::ate | ios::binary);
-
-    if (!file.is_open()) {
-        throw runtime_error("failed to open file!");
-    }
-
-    size_t fileSize = (size_t) file.tellg();
-    vector<char> buffer(fileSize);
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
-
-    return buffer;
-}
-
-ShaderDetails loadShaders(
-    VkDevice device
-) {
-    // Would be more appropriate to read from a final distribution destination
-    vector<char> vertShaderCode = readFile("../shaders/vert.spv");
-    vector<char> fragShaderCode = readFile("../shaders/frag.spv");
-
-    VkShaderModule vertShaderModule = createShaderModule(device, vertShaderCode);
-    VkShaderModule fragShaderModule = createShaderModule(device, fragShaderCode);
-
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo {};
-    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertShaderStageInfo.module = vertShaderModule;
-    vertShaderStageInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo {};
-    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragShaderStageInfo.module = fragShaderModule;
-    fragShaderStageInfo.pName = "main";
-
-    ShaderDetails details = {};
-    details.vertex_shader = vertShaderStageInfo;
-    details.vertex_shader_module = vertShaderModule;
-    details.fragment_shader = fragShaderStageInfo;
-    details.fragment_shader_module = fragShaderModule;
-
-    return details;
-}
-
 /*
  * Sets up graphics pipeline related resources
  */
 int Graphics::setup_pipeline() {
     return EXIT_SUCCESS;
 }
+
 
 
 /*
@@ -210,6 +136,7 @@ int Graphics::setup_draw_resources() {
  * Sets up graphics pipeline related resources
  */
 int Graphics::resize_window() {
+    // Destroy and re-create the image
     return EXIT_SUCCESS;
 }
 

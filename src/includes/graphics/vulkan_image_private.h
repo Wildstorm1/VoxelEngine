@@ -18,6 +18,7 @@ using namespace std;
 class VulkanImage {
     private:
         VkSwapchainKHR swap_chain;
+        vector<VkFramebuffer> swap_chain_framebuffers;
         vector<VkImage> swap_chain_images;
         vector<VkImageView> swap_chain_image_views;
         VkFormat swap_chain_image_format;
@@ -25,7 +26,6 @@ class VulkanImage {
         VkRenderPass render_pass;
         VkPipelineLayout pipeline_layout;
         VkPipeline graphics_pipeline;
-        vector<VkFramebuffer> swap_chain_framebuffers;
 
     public:
         VulkanImage();

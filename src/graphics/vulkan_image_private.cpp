@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <fstream>
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
@@ -8,6 +9,13 @@
 #include "../includes/graphics/vulkan_device_private.h"
 
 using namespace std;
+
+struct ShaderDetails {
+    VkPipelineShaderStageCreateInfo vertex_shader;
+    VkShaderModule vertex_shader_module;
+    VkPipelineShaderStageCreateInfo fragment_shader;
+    VkShaderModule fragment_shader_module;
+};
 
 VulkanImage::VulkanImage() {
     this->swap_chain = {};
@@ -164,62 +172,12 @@ VkResult create_image_views(
     return overall_result;
 }
 
-VulkanImageResult VulkanImage::init(
-    SDL_Window *window,
-    VulkanDevice *device
+VkResult create_render_pass(
+    VulkanDevice *device,
+    VkFormat *swap_chain_image_format,
+    VkRenderPass *render_pass
 ) {
-    cout << "Starting vulkan image setup" << endl;
-
-    VkResult swapchain_result = create_swapchain(
-        device,
-        window,
-        &this->swap_chain,
-        &this->swap_chain_images,
-        &this->swap_chain_image_format,
-        &this->swap_chain_extent
-    );
-
-    if (swapchain_result == VK_SUCCESS) {
-        cout << "Successfully created vulkan swapchain" << endl;
-    } else {
-        cout << "Could not create swapchain" << endl;
-        return VULKAN_IMAGE_INIT_FAILURE;
-    }
-
-    VkResult image_views = create_image_views(
-        device,
-        &this->swap_chain_images,
-        &this->swap_chain_image_views,
-        &this->swap_chain_image_format
-    );
-
-    if (image_views == VK_SUCCESS) {
-        cout << "Successfully created vulkan image views" << endl;
-    } else {
-        cout << "Could not create an image view" << endl;
-        return EXIT_FAILURE;
-    }
-
-    return VULKAN_IMAGE_INIT_SUCCESS;
-}
-
-void VulkanImage::destroy(
-    VulkanDevice *device
-) {
-    for (auto image_view : this->swap_chain_image_views) {
-        vkDestroyImageView(device->get_device(), image_view, nullptr);
-    }
-
-    vkDestroySwapchainKHR(device->get_device(), this->swap_chain, nullptr);
-}
-
-/*
-VkResult createRenderPass(
-    VkDevice device,
-    VkRenderPass *render_pass,
-    VkFormat *swap_chain_image_format
-) {
-    VkAttachmentDescription colorAttachment{};
+    VkAttachmentDescription colorAttachment {};
     colorAttachment.format = *swap_chain_image_format;
     colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -245,7 +203,7 @@ VkResult createRenderPass(
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
 
-    VkResult renderPassResult = vkCreateRenderPass(device, &renderPassInfo, nullptr, render_pass);
+    VkResult renderPassResult = vkCreateRenderPass(device->get_device(), &renderPassInfo, nullptr, render_pass);
 
     if (renderPassResult == VK_SUCCESS) {
         cout << "Successfully created vulkan render pass" << endl;
@@ -255,11 +213,122 @@ VkResult createRenderPass(
 
     return renderPassResult;
 }
-*/
 
-    /*
-    ShaderDetails shaderDetails = loadShaders(this->device.device());
-    VkPipelineShaderStageCreateInfo shaderStages[] = { shaderDetails.vertex_shader, shaderDetails.fragment_shader };
+VkResult create_framebuffers(
+    VulkanDevice *device,
+    VkRenderPass *render_pass,
+    VkExtent2D *swap_chain_extent,
+    vector<VkImageView> *swap_chain_image_views,
+    vector<VkFramebuffer> *swap_chain_framebuffers
+) {
+    swap_chain_framebuffers->resize(swap_chain_image_views->size());
+
+    for (size_t i = 0; i < swap_chain_image_views->size(); i++) {
+        VkImageView attachments[] = {
+            swap_chain_image_views->at(i)
+        };
+
+        VkFramebufferCreateInfo framebufferInfo {};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = *render_pass;
+        framebufferInfo.attachmentCount = 1;
+        framebufferInfo.pAttachments = attachments;
+        framebufferInfo.width = swap_chain_extent->width;
+        framebufferInfo.height = swap_chain_extent->height;
+        framebufferInfo.layers = 1;
+
+        VkResult framebufferResult = vkCreateFramebuffer(device->get_device(), &framebufferInfo, nullptr, &swap_chain_framebuffers->at(i));
+
+        if (framebufferResult != VK_SUCCESS) {
+            cout << "Could not create framebuffer" << endl;
+            return framebufferResult;
+        } else {
+            cout << "Successfully created a framebuffer" << endl;
+        }
+    }
+
+    return VK_SUCCESS;
+}
+
+VkShaderModule createShaderModule(
+    VulkanDevice *device,
+    const std::vector<char>& code
+) {
+    VkShaderModuleCreateInfo createInfo {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = code.size();
+    createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+    VkShaderModule shaderModule;
+    VkResult result = vkCreateShaderModule(device->get_device(), &createInfo, nullptr, &shaderModule);
+
+    if (result != VK_SUCCESS) {
+        throw runtime_error("failed to create shader module");
+    }
+
+    return shaderModule;
+}
+
+static vector<char> readFile(
+    const string &filename
+) {
+    ifstream file(filename, ios::ate | ios::binary);
+
+    if (!file.is_open()) {
+        throw runtime_error("failed to open file!");
+    }
+
+    size_t fileSize = (size_t) file.tellg();
+    vector<char> buffer(fileSize);
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+    file.close();
+
+    return buffer;
+}
+
+ShaderDetails loadShaders(
+    VulkanDevice *device
+) {
+    // Would be more appropriate to read from a final distribution destination
+    vector<char> vertShaderCode = readFile("../shaders/vert.spv");
+    vector<char> fragShaderCode = readFile("../shaders/frag.spv");
+
+    VkShaderModule vertShaderModule = createShaderModule(device, vertShaderCode);
+    VkShaderModule fragShaderModule = createShaderModule(device, fragShaderCode);
+
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo {};
+    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderStageInfo.module = vertShaderModule;
+    vertShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo {};
+    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderStageInfo.module = fragShaderModule;
+    fragShaderStageInfo.pName = "main";
+
+    ShaderDetails details = {};
+    details.vertex_shader = vertShaderStageInfo;
+    details.vertex_shader_module = vertShaderModule;
+    details.fragment_shader = fragShaderStageInfo;
+    details.fragment_shader_module = fragShaderModule;
+
+    return details;
+}
+
+VulkanImageResult setup_draw_pipeline(
+    VulkanDevice *device,
+    VkExtent2D *swap_chain_extent,
+    VkRenderPass *render_pass,
+    VkPipelineLayout *pipeline_layout,
+    VkPipeline *graphics_pipeline
+) {
+    ShaderDetails shaderDetails = loadShaders(device);
+    VkPipelineShaderStageCreateInfo shaderStages[] = {
+        shaderDetails.vertex_shader, shaderDetails.fragment_shader
+    };
 
     vector<VkDynamicState> dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
@@ -286,14 +355,14 @@ VkResult createRenderPass(
     VkViewport viewport {};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = (float) this->swap_chain_extent.width;
-    viewport.height = (float) this->swap_chain_extent.height;
+    viewport.width = (float) swap_chain_extent->width;
+    viewport.height = (float) swap_chain_extent->height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
     VkRect2D scissor {};
     scissor.offset = { 0, 0 };
-    scissor.extent = this->swap_chain_extent;
+    scissor.extent = *swap_chain_extent;
 
     VkPipelineViewportStateCreateInfo viewportState {};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -352,19 +421,13 @@ VkResult createRenderPass(
     pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
     pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
-    VkResult renderPassResult = createRenderPass(this->device.device(), &this->render_pass, &this->swap_chain_image_format);
-
-    if (renderPassResult != VK_SUCCESS) {
-        return EXIT_FAILURE;
-    }
-
-    VkResult layoutResult = vkCreatePipelineLayout(this->device.device(), &pipelineLayoutInfo, nullptr, &this->pipeline_layout);
+    VkResult layoutResult = vkCreatePipelineLayout(device->get_device(), &pipelineLayoutInfo, nullptr, pipeline_layout);
 
     if (layoutResult == VK_SUCCESS) {
         cout << "Successfully created vulkan pipeline layout" << endl;
     } else {
         cout << "Could not create pipeline layout" << endl;
-        return EXIT_FAILURE;
+        return VULKAN_IMAGE_INIT_FAILURE;
     }
 
     VkGraphicsPipelineCreateInfo pipelineInfo {};
@@ -379,77 +442,102 @@ VkResult createRenderPass(
     pipelineInfo.pDepthStencilState = nullptr; // Optional
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
-    pipelineInfo.layout = this->pipeline_layout;
-    pipelineInfo.renderPass = this->render_pass;
+    pipelineInfo.layout = *pipeline_layout;
+    pipelineInfo.renderPass = *render_pass;
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
     pipelineInfo.basePipelineIndex = -1; // Optional
 
-    VkResult pipelineResult = vkCreateGraphicsPipelines(this->device.device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &this->graphics_pipeline);
+    VkResult pipelineResult = vkCreateGraphicsPipelines(device->get_device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, graphics_pipeline);
 
     if (pipelineResult == VK_SUCCESS) {
         cout << "Successfully created vulkan pipeline" << endl;
     } else {
         cout << "Could not create pipeline" << endl;
-        return EXIT_FAILURE;
+        return VULKAN_IMAGE_INIT_FAILURE;
     }
 
-    vkDestroyShaderModule(this->device.device(), shaderDetails.fragment_shader_module, nullptr);
-    vkDestroyShaderModule(this->device.device(), shaderDetails.vertex_shader_module, nullptr);
-    */
-
-/*
-VkResult create_framebuffers(
-    VkDevice device,
-    VkRenderPass *render_pass,
-    VkExtent2D *swap_chain_extent,
-    vector<VkImageView> *swap_chain_image_views,
-    vector<VkFramebuffer> *swap_chain_framebuffers
-) {
-    swap_chain_framebuffers->resize(swap_chain_image_views->size());
-
-    for (size_t i = 0; i < swap_chain_image_views->size(); i++) {
-        VkImageView attachments[] = {
-            swap_chain_image_views->at(i)
-        };
-
-        VkFramebufferCreateInfo framebufferInfo {};
-        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferInfo.renderPass = *render_pass;
-        framebufferInfo.attachmentCount = 1;
-        framebufferInfo.pAttachments = attachments;
-        framebufferInfo.width = swap_chain_extent->width;
-        framebufferInfo.height = swap_chain_extent->height;
-        framebufferInfo.layers = 1;
-
-        VkResult framebufferResult = vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swap_chain_framebuffers->at(i));
-
-        if (framebufferResult != VK_SUCCESS) {
-            cout << "Could not create framebuffer" << endl;
-            return framebufferResult;
-        } else {
-            cout << "Successfully created a framebuffer" << endl;
-        }
-    }
-
-    return VK_SUCCESS;
+    vkDestroyShaderModule(device->get_device(), shaderDetails.fragment_shader_module, nullptr);
+    vkDestroyShaderModule(device->get_device(), shaderDetails.vertex_shader_module, nullptr);
+    return VULKAN_IMAGE_INIT_SUCCESS;
 }
 
-    VkResult framebuffersResult = create_framebuffers(
-        this->device.device(),
-        &this->render_pass,
-        &this->swap_chain_extent,
-        &this->swap_chain_image_views,
-        &this->swap_chain_framebuffers
+VulkanImageResult VulkanImage::init(
+    SDL_Window *window,
+    VulkanDevice *device
+) {
+    cout << "Starting vulkan image setup" << endl;
+
+    VkResult swapchain_result = create_swapchain(
+        device, window, &this->swap_chain, &this->swap_chain_images, &this->swap_chain_image_format, &this->swap_chain_extent
     );
-*/
 
-/*
-        for (auto framebuffer : this->swap_chain_framebuffers) {
-            vkDestroyFramebuffer(this->device.device(), framebuffer, nullptr);
-        }
+    if (swapchain_result == VK_SUCCESS) {
+        cout << "Successfully created vulkan swapchain" << endl;
+    } else {
+        cout << "Could not create swapchain" << endl;
+        return VULKAN_IMAGE_INIT_FAILURE;
+    }
 
-        vkDestroyPipeline(this->device.device(), this->graphics_pipeline, nullptr);
-        vkDestroyPipelineLayout(this->device.device(), this->pipeline_layout, nullptr);
-        vkDestroyRenderPass(this->device.device(), this->render_pass, nullptr);
-        */
+    VkResult image_views_result = create_image_views(
+        device, &this->swap_chain_images, &this->swap_chain_image_views, &this->swap_chain_image_format
+    );
+
+    if (image_views_result == VK_SUCCESS) {
+        cout << "Successfully created vulkan image views" << endl;
+    } else {
+        cout << "Could not create an image view" << endl;
+        return VULKAN_IMAGE_INIT_FAILURE;
+    }
+
+    VkResult render_pass_result = create_render_pass(
+        device, &this->swap_chain_image_format, &this->render_pass
+    );
+
+    if (render_pass_result == VK_SUCCESS) {
+        cout << "Successfully created vulkan render pass" << endl;
+    } else {
+        cout << "Could not create a render pass" << endl;
+        return VULKAN_IMAGE_INIT_FAILURE;
+    }
+
+    VkResult framebuffers_result = create_framebuffers(
+        device, &this->render_pass, &this->swap_chain_extent, &this->swap_chain_image_views, &this->swap_chain_framebuffers
+    );
+
+    if (framebuffers_result == VK_SUCCESS) {
+        cout << "Successfully created vulkan framebuffers" << endl;
+    } else {
+        cout << "Could not create a framebuffer" << endl;
+        return VULKAN_IMAGE_INIT_FAILURE;
+    }
+
+    VulkanImageResult draw_pipeline = setup_draw_pipeline(
+        device, &this->swap_chain_extent, &this->render_pass, &this->pipeline_layout, &this->graphics_pipeline
+    );
+
+    if (draw_pipeline == VULKAN_IMAGE_INIT_SUCCESS) {
+        cout << "Successfully created vulkan pipeline resources" << endl;
+    }
+
+    return draw_pipeline;
+}
+
+void VulkanImage::destroy(
+    VulkanDevice *device
+) {
+    vkDestroyPipeline(device->get_device(), this->graphics_pipeline, nullptr);
+    vkDestroyPipelineLayout(device->get_device(), this->pipeline_layout, nullptr);
+
+    for (auto framebuffer : this->swap_chain_framebuffers) {
+        vkDestroyFramebuffer(device->get_device(), framebuffer, nullptr);
+    }
+
+    vkDestroyRenderPass(device->get_device(), this->render_pass, nullptr);
+
+    for (auto image_view : this->swap_chain_image_views) {
+        vkDestroyImageView(device->get_device(), image_view, nullptr);
+    }
+
+    vkDestroySwapchainKHR(device->get_device(), this->swap_chain, nullptr);
+}
