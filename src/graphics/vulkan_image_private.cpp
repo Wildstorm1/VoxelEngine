@@ -498,19 +498,21 @@ uint32_t find_memory_type(
     throw std::runtime_error("Failed to find suitable memory type!");
 }
 
-VkResult create_vertex_buffer(
+VkResult create_buffer(
     VulkanDevice *device,
-    VkBuffer *vertex_buffer,
-    VkDeviceMemory *vertex_buffer_memory
+    VkDeviceSize size,
+    VkBufferUsageFlags usage,
+    VkMemoryPropertyFlags properties,
+    VkBuffer *buffer,
+    VkDeviceMemory *buffer_memory
 ) {
-    // TODO: This is something that is loaded once and reused per instance
-    VkBufferCreateInfo bufferInfo{};
+    VkBufferCreateInfo bufferInfo {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = sizeof(Vertex) * 3;
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkResult buffer_result = vkCreateBuffer(device->get_device(), &bufferInfo, nullptr, vertex_buffer);
+    VkResult buffer_result = vkCreateBuffer(device->get_device(), &bufferInfo, nullptr, buffer);
 
     if (buffer_result == VK_SUCCESS) {
         cout << "Successfully created vulkan vertex buffer" << endl;
@@ -520,27 +522,23 @@ VkResult create_vertex_buffer(
     }
 
     VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device->get_device(), *vertex_buffer, &memRequirements);
-
-    DeviceInfos* device_info = device->get_device_info();
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(device_info->device, &memProperties);
+    vkGetBufferMemoryRequirements(device->get_device(), *buffer, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = find_memory_type(device, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    allocInfo.memoryTypeIndex = find_memory_type(device, memRequirements.memoryTypeBits, properties);
 
-    VkResult buffer_memory_result = vkAllocateMemory(device->get_device(), &allocInfo, nullptr, vertex_buffer_memory);
+    VkResult buffer_memory_result = vkAllocateMemory(device->get_device(), &allocInfo, nullptr, buffer_memory);
 
     if (buffer_memory_result == VK_SUCCESS) {
-        cout << "Successfully created vulkan vertex buffer memory block" << endl;
+        cout << "Successfully created vulkan buffer memory block" << endl;
     } else {
         cout << "Could not allocate device memory block" << endl;
         return buffer_result;
     }
 
-    vkBindBufferMemory(device->get_device(), *vertex_buffer, *vertex_buffer_memory, 0);
+    vkBindBufferMemory(device->get_device(), *buffer, *buffer_memory, 0);
     return VK_SUCCESS;
 }
 
@@ -605,14 +603,35 @@ VulkanImageResult VulkanImage::init(
         return VULKAN_IMAGE_INIT_FAILURE;
     }
 
-    VkResult buffer_result = create_vertex_buffer(
-        device, &this->vertex_buffer, &this->vertex_buffer_memory
+    VkResult vertex_buffer_result = create_buffer(
+        device,
+        sizeof(Vertex) * 3,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &this->vertex_buffer,
+        &this->vertex_buffer_memory
     );
 
-    if (buffer_result == VK_SUCCESS) {
+    if (vertex_buffer_result == VK_SUCCESS) {
         cout << "Successfully created vulkan vertex buffer" << endl;
     } else {
         cout << "Could not create vertex buffer" << endl;
+        return VULKAN_IMAGE_INIT_FAILURE;
+    }
+
+    VkResult staging_buffer_result = create_buffer(
+        device,
+        sizeof(Vertex) * 3,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &this->staging_buffer,
+        &this->staging_buffer_memory
+    );
+
+    if (staging_buffer_result == VK_SUCCESS) {
+        cout << "Successfully created vulkan staging buffer" << endl;
+    } else {
+        cout << "Could not create staging buffer" << endl;
         return VULKAN_IMAGE_INIT_FAILURE;
     }
 
@@ -664,6 +683,14 @@ VkBuffer VulkanImage::get_vertex_buffer() {
     return this->vertex_buffer;
 }
 
+VkDeviceMemory VulkanImage::get_staging_buffer_device_memory() {
+    return this->staging_buffer_memory;
+}
+
+VkBuffer VulkanImage::get_staging_buffer() {
+    return this->staging_buffer;
+}
+
 void VulkanImage::destroy(
     VulkanDevice *device
 ) {
@@ -673,6 +700,8 @@ void VulkanImage::destroy(
         vkDestroySemaphore(device->get_device(), this->render_framebuffer_semaphores[i], nullptr);
     }
 
+    vkDestroyBuffer(device->get_device(), this->staging_buffer, nullptr);
+    vkFreeMemory(device->get_device(), this->staging_buffer_memory, nullptr);
     vkDestroyBuffer(device->get_device(), this->vertex_buffer, nullptr);
     vkFreeMemory(device->get_device(), this->vertex_buffer_memory, nullptr);
     vkDestroyPipeline(device->get_device(), this->graphics_pipeline, nullptr);

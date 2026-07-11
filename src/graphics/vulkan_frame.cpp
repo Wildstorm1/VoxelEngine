@@ -118,11 +118,48 @@ FrameResult VulkanFrame::draw() {
         {{-0.5f, 0.5f}, {0.5f, 0.0f, 0.5f}}
     };
 
+    // Copy into staging buffer
     void* data;
-    vkMapMemory(this->device->get_device(), this->image->get_vertex_buffer_device_memory(), 0, sizeof(Vertex) * 3, 0, &data);
+    vkMapMemory(this->device->get_device(), this->image->get_staging_buffer_device_memory(), 0, sizeof(Vertex) * 3, 0, &data);
     memcpy(data, vertices.data(), (size_t) sizeof(Vertex) * 3);
-    vkUnmapMemory(this->device->get_device(), this->image->get_vertex_buffer_device_memory());
+    vkUnmapMemory(this->device->get_device(), this->image->get_staging_buffer_device_memory());
 
+    // Transfer from staging buffer to gpu buffer
+    VkCommandBufferAllocateInfo allocInfo {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = this->command_pool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(this->device->get_device(), &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = 0; // Optional
+    copyRegion.dstOffset = 0; // Optional
+    copyRegion.size = (size_t) sizeof(Vertex) * 3;
+    vkCmdCopyBuffer(commandBuffer, this->image->get_staging_buffer(), this->image->get_vertex_buffer(), 1, &copyRegion);
+    vkEndCommandBuffer(commandBuffer);
+
+    // Submit the copy for processing
+    VkSubmitInfo submitInfo {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(this->device->get_graphics_queue(), 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(this->device->get_graphics_queue());
+
+    // Free the command buffer
+    vkFreeCommandBuffers(this->device->get_device(), this->command_pool, 1, &commandBuffer);
+
+    // Draw what is in the gpu buffer
     VkBuffer vertexBuffers[] = { this->image->get_vertex_buffer() };
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(this->command_buffer, 0, 1, vertexBuffers, offsets);
