@@ -1,4 +1,5 @@
 #include <iostream>
+#include <array>
 #include <vulkan/vulkan.h>
 #include "../includes/graphics/vulkan_frame.h"
 
@@ -106,10 +107,26 @@ FrameResult VulkanFrame::begin_frame() {
     scissor.offset = {0, 0};
     scissor.extent = this->image->get_swapchain_extent();
     vkCmdSetScissor(this->command_buffer, 0, 1, &scissor);
+
     return FRAME_SUCCESS;
 }
 
 FrameResult VulkanFrame::draw() {
+    const vector<Vertex> vertices = {
+        {{0.0f, -0.5f}, {0.5f, 0.5f, 0.5f}},
+        {{0.5f, 0.5f}, {0.0f, 0.5f, 0.5f}},
+        {{-0.5f, 0.5f}, {0.5f, 0.0f, 0.5f}}
+    };
+
+    void* data;
+    vkMapMemory(this->device->get_device(), this->image->get_vertex_buffer_device_memory(), 0, sizeof(Vertex) * 3, 0, &data);
+    memcpy(data, vertices.data(), (size_t) sizeof(Vertex) * 3);
+    vkUnmapMemory(this->device->get_device(), this->image->get_vertex_buffer_device_memory());
+
+    VkBuffer vertexBuffers[] = { this->image->get_vertex_buffer() };
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(this->command_buffer, 0, 1, vertexBuffers, offsets);
+
     vkCmdDraw(this->command_buffer, 3, 1, 0, 0);
     return FRAME_SUCCESS;
 }

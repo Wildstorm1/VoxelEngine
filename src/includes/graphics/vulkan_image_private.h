@@ -1,5 +1,6 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include <vector>
 #include <vulkan/vulkan.h>
 #include "./vulkan_device_private.h"
@@ -10,6 +11,12 @@ typedef int VulkanImageResult;
 #define VULKAN_IMAGE_INIT_FAILURE 1
 
 using namespace std;
+using namespace glm;
+
+struct Vertex {
+    vec2 pos;
+    vec3 color;
+};
 
 /*
  * Module wraps around vulkan resources which describe an image or
@@ -27,6 +34,8 @@ class VulkanImage {
         VkRenderPass render_pass;
         VkPipelineLayout pipeline_layout;
         VkPipeline graphics_pipeline;
+        VkDeviceMemory vertex_buffer_memory;
+        VkBuffer vertex_buffer;
 
     public:
         VulkanImage();
@@ -68,6 +77,16 @@ class VulkanImage {
          * Return a handle to the graphics pipeline
          */
         VkPipeline get_graphics_pipeline();
+
+        /*
+         * Return a handle to the vertex buffers device memory
+         */
+        VkDeviceMemory get_vertex_buffer_device_memory();
+
+        /*
+         * Return a handle to the vertex buffers device memory
+         */
+        VkBuffer get_vertex_buffer();
 
         /*
          * Frees the image related resources

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <array>
 #include <algorithm>
 #include <fstream>
 #include <vulkan/vulkan.h>
@@ -69,8 +70,8 @@ VkExtent2D choose_swap_extent(
             static_cast<uint32_t>(height)
         };
 
-        actualExtent.width = clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-        actualExtent.height = clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+        actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+        actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
         return actualExtent;
     }
@@ -341,12 +342,28 @@ VulkanImageResult setup_draw_pipeline(
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
+    VkVertexInputBindingDescription bindingDescription {};
+    bindingDescription.binding = 0;
+    bindingDescription.stride = sizeof(Vertex);
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    array<VkVertexInputAttributeDescription, 2> attributeDescriptions {};
+    attributeDescriptions[0].binding = 0;
+    attributeDescriptions[0].location = 0;
+    attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+    attributeDescriptions[1].binding = 0;
+    attributeDescriptions[1].location = 1;
+    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[1].offset = offsetof(Vertex, color);
+
     VkPipelineVertexInputStateCreateInfo vertexInputInfo {};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly {};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -463,6 +480,70 @@ VulkanImageResult setup_draw_pipeline(
     return VULKAN_IMAGE_INIT_SUCCESS;
 }
 
+uint32_t find_memory_type(
+    VulkanDevice *device,
+    uint32_t typeFilter,
+    VkMemoryPropertyFlags properties
+) {
+    DeviceInfos* device_info = device->get_device_info();
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(device_info->device, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    throw std::runtime_error("Failed to find suitable memory type!");
+}
+
+VkResult create_vertex_buffer(
+    VulkanDevice *device,
+    VkBuffer *vertex_buffer,
+    VkDeviceMemory *vertex_buffer_memory
+) {
+    // TODO: This is something that is loaded once and reused per instance
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = sizeof(Vertex) * 3;
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VkResult buffer_result = vkCreateBuffer(device->get_device(), &bufferInfo, nullptr, vertex_buffer);
+
+    if (buffer_result == VK_SUCCESS) {
+        cout << "Successfully created vulkan vertex buffer" << endl;
+    } else {
+        cout << "Could not create vertex buffer" << endl;
+        return buffer_result;
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device->get_device(), *vertex_buffer, &memRequirements);
+
+    DeviceInfos* device_info = device->get_device_info();
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(device_info->device, &memProperties);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = find_memory_type(device, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    VkResult buffer_memory_result = vkAllocateMemory(device->get_device(), &allocInfo, nullptr, vertex_buffer_memory);
+
+    if (buffer_memory_result == VK_SUCCESS) {
+        cout << "Successfully created vulkan vertex buffer memory block" << endl;
+    } else {
+        cout << "Could not allocate device memory block" << endl;
+        return buffer_result;
+    }
+
+    vkBindBufferMemory(device->get_device(), *vertex_buffer, *vertex_buffer_memory, 0);
+    return VK_SUCCESS;
+}
+
 VulkanImageResult VulkanImage::init(
     SDL_Window *window,
     VulkanDevice *device
@@ -519,6 +600,20 @@ VulkanImageResult VulkanImage::init(
 
     if (draw_pipeline == VULKAN_IMAGE_INIT_SUCCESS) {
         cout << "Successfully created vulkan pipeline resources" << endl;
+    } else {
+        cout << "Could not create the pipeline" << endl;
+        return VULKAN_IMAGE_INIT_FAILURE;
+    }
+
+    VkResult buffer_result = create_vertex_buffer(
+        device, &this->vertex_buffer, &this->vertex_buffer_memory
+    );
+
+    if (buffer_result == VK_SUCCESS) {
+        cout << "Successfully created vulkan vertex buffer" << endl;
+    } else {
+        cout << "Could not create vertex buffer" << endl;
+        return VULKAN_IMAGE_INIT_FAILURE;
     }
 
     VkSemaphoreCreateInfo semaphoreInfo {};
@@ -561,6 +656,14 @@ VkPipeline VulkanImage::get_graphics_pipeline() {
     return this->graphics_pipeline;
 }
 
+VkDeviceMemory VulkanImage::get_vertex_buffer_device_memory() {
+    return this->vertex_buffer_memory;
+}
+
+VkBuffer VulkanImage::get_vertex_buffer() {
+    return this->vertex_buffer;
+}
+
 void VulkanImage::destroy(
     VulkanDevice *device
 ) {
@@ -570,6 +673,8 @@ void VulkanImage::destroy(
         vkDestroySemaphore(device->get_device(), this->render_framebuffer_semaphores[i], nullptr);
     }
 
+    vkDestroyBuffer(device->get_device(), this->vertex_buffer, nullptr);
+    vkFreeMemory(device->get_device(), this->vertex_buffer_memory, nullptr);
     vkDestroyPipeline(device->get_device(), this->graphics_pipeline, nullptr);
     vkDestroyPipelineLayout(device->get_device(), this->pipeline_layout, nullptr);
 
