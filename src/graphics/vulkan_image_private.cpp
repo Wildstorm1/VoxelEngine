@@ -605,7 +605,7 @@ VulkanImageResult VulkanImage::init(
 
     VkResult vertex_buffer_result = create_buffer(
         device,
-        sizeof(Vertex) * 3,
+        sizeof(Vertex) * 4,
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         &this->vertex_buffer,
@@ -621,17 +621,49 @@ VulkanImageResult VulkanImage::init(
 
     VkResult staging_buffer_result = create_buffer(
         device,
-        sizeof(Vertex) * 3,
+        sizeof(Vertex) * 4,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        &this->staging_buffer,
-        &this->staging_buffer_memory
+        &this->vertex_staging_buffer,
+        &this->vertex_staging_buffer_memory
     );
 
     if (staging_buffer_result == VK_SUCCESS) {
         cout << "Successfully created vulkan staging buffer" << endl;
     } else {
         cout << "Could not create staging buffer" << endl;
+        return VULKAN_IMAGE_INIT_FAILURE;
+    }
+
+    VkResult index_buffer_result = create_buffer(
+        device,
+        sizeof(uint16_t) * 6,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &this->index_buffer,
+        &this->index_buffer_memory
+    );
+
+    if (index_buffer_result == VK_SUCCESS) {
+        cout << "Successfully created vulkan index buffer" << endl;
+    } else {
+        cout << "Could not create index buffer" << endl;
+        return VULKAN_IMAGE_INIT_FAILURE;
+    }
+
+    VkResult index_staging_buffer_result = create_buffer(
+        device,
+        sizeof(uint16_t) * 6,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &this->index_staging_buffer,
+        &this->index_staging_buffer_memory
+    );
+
+    if (index_staging_buffer_result == VK_SUCCESS) {
+        cout << "Successfully created vulkan index staging buffer" << endl;
+    } else {
+        cout << "Could not create index staging buffer" << endl;
         return VULKAN_IMAGE_INIT_FAILURE;
     }
 
@@ -683,12 +715,28 @@ VkBuffer VulkanImage::get_vertex_buffer() {
     return this->vertex_buffer;
 }
 
-VkDeviceMemory VulkanImage::get_staging_buffer_device_memory() {
-    return this->staging_buffer_memory;
+VkDeviceMemory VulkanImage::get_vertex_staging_buffer_device_memory() {
+    return this->vertex_staging_buffer_memory;
 }
 
-VkBuffer VulkanImage::get_staging_buffer() {
-    return this->staging_buffer;
+VkBuffer VulkanImage::get_vertex_staging_buffer() {
+    return this->vertex_staging_buffer;
+}
+
+VkDeviceMemory VulkanImage::get_index_buffer_device_memory() {
+    return this->index_buffer_memory;
+}
+
+VkBuffer VulkanImage::get_index_buffer() {
+    return this->index_buffer;
+}
+
+VkDeviceMemory VulkanImage::get_index_staging_buffer_device_memory() {
+    return this->index_staging_buffer_memory;
+}
+
+VkBuffer VulkanImage::get_index_staging_buffer() {
+    return this->index_staging_buffer;
 }
 
 void VulkanImage::destroy(
@@ -700,8 +748,10 @@ void VulkanImage::destroy(
         vkDestroySemaphore(device->get_device(), this->render_framebuffer_semaphores[i], nullptr);
     }
 
-    vkDestroyBuffer(device->get_device(), this->staging_buffer, nullptr);
-    vkFreeMemory(device->get_device(), this->staging_buffer_memory, nullptr);
+    vkDestroyBuffer(device->get_device(), this->index_buffer, nullptr);
+    vkFreeMemory(device->get_device(), this->index_buffer_memory, nullptr);
+    vkDestroyBuffer(device->get_device(), this->vertex_staging_buffer, nullptr);
+    vkFreeMemory(device->get_device(), this->vertex_staging_buffer_memory, nullptr);
     vkDestroyBuffer(device->get_device(), this->vertex_buffer, nullptr);
     vkFreeMemory(device->get_device(), this->vertex_buffer_memory, nullptr);
     vkDestroyPipeline(device->get_device(), this->graphics_pipeline, nullptr);

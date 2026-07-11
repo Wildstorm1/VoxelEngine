@@ -111,28 +111,33 @@ FrameResult VulkanFrame::begin_frame() {
     return FRAME_SUCCESS;
 }
 
-FrameResult VulkanFrame::draw() {
+void copy_vertex_cpu_staging_buffer_to_gpu(
+    VulkanDevice *device,
+    VulkanImage *image,
+    VkCommandPool command_pool
+) {
     const vector<Vertex> vertices = {
-        {{0.0f, -0.5f}, {0.5f, 0.5f, 0.5f}},
-        {{0.5f, 0.5f}, {0.0f, 0.5f, 0.5f}},
-        {{-0.5f, 0.5f}, {0.5f, 0.0f, 0.5f}}
+        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
     };
 
     // Copy into staging buffer
     void* data;
-    vkMapMemory(this->device->get_device(), this->image->get_staging_buffer_device_memory(), 0, sizeof(Vertex) * 3, 0, &data);
-    memcpy(data, vertices.data(), (size_t) sizeof(Vertex) * 3);
-    vkUnmapMemory(this->device->get_device(), this->image->get_staging_buffer_device_memory());
+    vkMapMemory(device->get_device(), image->get_vertex_staging_buffer_device_memory(), 0, sizeof(Vertex) * 4, 0, &data);
+    memcpy(data, vertices.data(), (size_t) sizeof(Vertex) * 4);
+    vkUnmapMemory(device->get_device(), image->get_vertex_staging_buffer_device_memory());
 
     // Transfer from staging buffer to gpu buffer
     VkCommandBufferAllocateInfo allocInfo {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = this->command_pool;
+    allocInfo.commandPool = command_pool;
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(this->device->get_device(), &allocInfo, &commandBuffer);
+    vkAllocateCommandBuffers(device->get_device(), &allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -143,8 +148,8 @@ FrameResult VulkanFrame::draw() {
     VkBufferCopy copyRegion{};
     copyRegion.srcOffset = 0; // Optional
     copyRegion.dstOffset = 0; // Optional
-    copyRegion.size = (size_t) sizeof(Vertex) * 3;
-    vkCmdCopyBuffer(commandBuffer, this->image->get_staging_buffer(), this->image->get_vertex_buffer(), 1, &copyRegion);
+    copyRegion.size = (size_t) sizeof(Vertex) * 4;
+    vkCmdCopyBuffer(commandBuffer, image->get_vertex_staging_buffer(),image->get_vertex_buffer(), 1, &copyRegion);
     vkEndCommandBuffer(commandBuffer);
 
     // Submit the copy for processing
@@ -153,18 +158,75 @@ FrameResult VulkanFrame::draw() {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
 
-    vkQueueSubmit(this->device->get_graphics_queue(), 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(this->device->get_graphics_queue());
+    vkQueueSubmit(device->get_graphics_queue(), 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(device->get_graphics_queue());
 
     // Free the command buffer
-    vkFreeCommandBuffers(this->device->get_device(), this->command_pool, 1, &commandBuffer);
+    vkFreeCommandBuffers(device->get_device(), command_pool, 1, &commandBuffer);
+}
+
+void copy_index_cpu_staging_buffer_to_gpu(
+    VulkanDevice *device,
+    VulkanImage *image,
+    VkCommandPool command_pool
+) {
+    const vector<uint16_t> indices = {
+        0, 1, 2, 2, 3, 0
+    };
+
+    // Copy into staging buffer
+    void* data;
+    vkMapMemory(device->get_device(), image->get_index_staging_buffer_device_memory(), 0, sizeof(uint16_t) * 6, 0, &data);
+    memcpy(data, indices.data(), (size_t) sizeof(uint16_t) * 6);
+    vkUnmapMemory(device->get_device(), image->get_index_staging_buffer_device_memory());
+
+    // Transfer from staging buffer to gpu buffer
+    VkCommandBufferAllocateInfo allocInfo {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = command_pool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(device->get_device(), &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = 0; // Optional
+    copyRegion.dstOffset = 0; // Optional
+    copyRegion.size = (size_t) sizeof(uint16_t) * 6;
+    vkCmdCopyBuffer(commandBuffer, image->get_index_staging_buffer(), image->get_index_buffer(), 1, &copyRegion);
+    vkEndCommandBuffer(commandBuffer);
+
+    // Submit the copy for processing
+    VkSubmitInfo submitInfo {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(device->get_graphics_queue(), 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(device->get_graphics_queue());
+
+    // Free the command buffer
+    vkFreeCommandBuffers(device->get_device(), command_pool, 1, &commandBuffer);
+}
+
+FrameResult VulkanFrame::draw() {
+    copy_vertex_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool);
+    copy_index_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool);
 
     // Draw what is in the gpu buffer
     VkBuffer vertexBuffers[] = { this->image->get_vertex_buffer() };
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(this->command_buffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(this->command_buffer, this->image->get_index_buffer(), 0, VK_INDEX_TYPE_UINT16);
 
-    vkCmdDraw(this->command_buffer, 3, 1, 0, 0);
+    vkCmdDrawIndexed(this->command_buffer, 6, 1, 0, 0, 0);
     return FRAME_SUCCESS;
 }
 

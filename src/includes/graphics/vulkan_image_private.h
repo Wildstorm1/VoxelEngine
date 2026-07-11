@@ -36,8 +36,12 @@ class VulkanImage {
         VkPipeline graphics_pipeline;
         VkDeviceMemory vertex_buffer_memory;
         VkBuffer vertex_buffer;
-        VkDeviceMemory staging_buffer_memory;
-        VkBuffer staging_buffer;
+        VkDeviceMemory vertex_staging_buffer_memory;
+        VkBuffer vertex_staging_buffer;
+        VkDeviceMemory index_buffer_memory;
+        VkBuffer index_buffer;
+        VkDeviceMemory index_staging_buffer_memory;
+        VkBuffer index_staging_buffer;
 
     public:
         VulkanImage();
@@ -93,12 +97,32 @@ class VulkanImage {
         /*
          * Return a handle to the staging buffers device memory
          */
-        VkDeviceMemory get_staging_buffer_device_memory();
+        VkDeviceMemory get_vertex_staging_buffer_device_memory();
 
         /*
          * Return a handle to the staging buffer
          */
-        VkBuffer get_staging_buffer();
+        VkBuffer get_vertex_staging_buffer();
+
+        /*
+         * Return a handle to the index buffers device memory
+         */
+        VkDeviceMemory get_index_buffer_device_memory();
+
+        /*
+         * Return a handle to the index buffer
+         */
+        VkBuffer get_index_buffer();
+
+        /*
+         * Return a handle to the index buffers device memory
+         */
+        VkDeviceMemory get_index_staging_buffer_device_memory();
+
+        /*
+         * Return a handle to the index buffer
+         */
+        VkBuffer get_index_staging_buffer();
 
         /*
          * Frees the image related resources
