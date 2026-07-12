@@ -7,8 +7,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include "../includes/graphics/graphics.h"
 #include "../includes/graphics/frame.h"
 #include "../includes/graphics/vulkan_frame.h"
@@ -23,7 +21,6 @@ Graphics::Graphics() {
     this->image = {};
     this->device = {};
     this->frame_index = 0;
-    this->camera = {};
 }
 
 /*
@@ -101,21 +98,17 @@ void Graphics::begin_render_pass() {
 }
 
 /*
+ * Sets the camera for drawing
+ */
+void Graphics::set_camera(UniformBufferObject camera) {
+    this->frame_buffer[this->frame_index]->set_camera(camera);
+}
+
+/*
  * Draws objects during a render pass
  */
 void Graphics::draw(float delta_time) {
     cout << "delta time: " << delta_time << endl;
-
-    this->camera.model = glm::rotate(glm::mat4(1.0f), delta_time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    this->camera.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-
-    VkExtent2D extent = this->image.get_swapchain_extent();
-    cout << "width: " << extent.width << " height: " << extent.height << endl;
-
-    this->camera.proj = glm::perspective(glm::radians(45.0f), extent.width / (float) extent.height, 0.1f, 10.0f);
-    this->camera.proj[1][1] *= -1;
-
-    this->frame_buffer[this->frame_index]->set_camera(this->camera);
     this->frame_buffer[this->frame_index]->draw();
 }
 
@@ -125,6 +118,15 @@ void Graphics::draw(float delta_time) {
 void Graphics::end_render_pass() {
     this->frame_buffer[this->frame_index]->end_frame();
     this->frame_index = (this->frame_index + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+WindowSize Graphics::get_window_size() {
+    VkExtent2D extent = this->image.get_swapchain_extent();
+
+    WindowSize window_size = {};
+    window_size.width = extent.width;
+    window_size.height = extent.height;
+    return window_size;
 }
 
 /*

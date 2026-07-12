@@ -13,13 +13,17 @@
 
 using namespace std;
 
+struct WindowSize {
+    uint32_t width;
+    uint32_t height;
+};
+
 class Graphics {
     private:
         VulkanInstance instance;
         VulkanDevice device;
         VulkanImage image;
 
-        UniformBufferObject camera;
         SDL_Window *window;
         VkCommandPool command_pool;
         vector<Frame*> frame_buffer;
@@ -31,7 +35,9 @@ class Graphics {
         int init(SDL_Window *window);
         int resize_window();
         void begin_render_pass();
+        void set_camera(UniformBufferObject camera);
         void draw(float delta_time);
         void end_render_pass();
+        WindowSize get_window_size();
         SDL_Window *release();
 };

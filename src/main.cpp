@@ -5,13 +5,16 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_init.h>
-
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include "./includes/graphics/frame.h"
 #include "./includes/graphics/graphics.h"
 
 using namespace std;
 
+UniformBufferObject camera;
 constexpr uint32_t windowStartWidth = 800;
-constexpr uint32_t windowStartHeight = 400;
+constexpr uint32_t windowStartHeight = 600;
 chrono::steady_clock::time_point start_time;
 float delta_time = 0;
 void *graphics_memory = nullptr;
@@ -34,6 +37,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     if (window == nullptr) {
         return SDL_Fail();
     }
+
+    SDL_SetWindowRelativeMouseMode(window, true);
+    SDL_SetWindowMouseGrab(window, true);
 
     graphics_memory = malloc(sizeof(Graphics));
 
@@ -62,6 +68,12 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         graphics->resize_window();
     }
 
+    if (event->type == SDL_EVENT_KEY_UP) {
+        if (event->key.key == SDLK_ESCAPE) {
+            return SDL_APP_SUCCESS; // Safely exits the app
+        }
+    }
+
     return SDL_APP_CONTINUE;
 }
 
@@ -71,6 +83,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     delta_time = chrono::duration<float, chrono::seconds::period>(now_time - start_time).count();
     start_time = now_time;
 
+    WindowSize size = graphics->get_window_size();
+
+    camera.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    camera.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    camera.proj = glm::perspective(glm::radians(45.0f), size.width / (float) size.height, 0.1f, 10.0f);
+    camera.proj[1][1] *= -1;
+
+    graphics->set_camera(camera);
     graphics->begin_render_pass();
     graphics->draw(delta_time);
     graphics->end_render_pass();
