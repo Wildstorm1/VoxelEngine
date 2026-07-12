@@ -1,18 +1,23 @@
 #include <iostream>
 #include <array>
 #include <vulkan/vulkan.h>
+#include "../includes/graphics/memory.h"
+#include "../includes/graphics/frame.h"
 #include "../includes/graphics/vulkan_frame.h"
+#include "../includes/graphics/vulkan_image_private.h"
 
 using namespace std;
 
 VulkanFrame::VulkanFrame(
     VulkanDevice *device,
     VulkanImage *image,
-    VkCommandPool command_pool
+    VkCommandPool command_pool,
+    size_t frame_index
 ) {
     this->command_pool = command_pool;
     this->device = device;
     this->image = image;
+    this->frame_index = frame_index;
 }
 
 FrameResult VulkanFrame::init() {
@@ -216,6 +221,15 @@ void copy_index_cpu_staging_buffer_to_gpu(
     vkFreeCommandBuffers(device->get_device(), command_pool, 1, &commandBuffer);
 }
 
+FrameResult VulkanFrame::set_camera(
+    UniformBufferObject camera
+) {
+    //vkMapMemory(device->get_device(), this->uniform_buffer_memory, 0, sizeof(UniformBufferObject), 0, &this->uniform_buffer_cpu_memory);
+    memcpy(this->image->get_uniform_frame_buffer_cpu_mapped(this->frame_index), &camera, sizeof(camera));
+    //vkUnmapMemory(device->get_device(), this->uniform_buffer_memory);
+    return FRAME_SUCCESS;
+}
+
 FrameResult VulkanFrame::draw() {
     copy_vertex_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool);
     copy_index_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool);
@@ -226,6 +240,16 @@ FrameResult VulkanFrame::draw() {
     vkCmdBindVertexBuffers(this->command_buffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(this->command_buffer, this->image->get_index_buffer(), 0, VK_INDEX_TYPE_UINT16);
 
+    vkCmdBindDescriptorSets(
+        this->command_buffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        this->image->get_graphics_pipeline_layout(),
+        0,
+        1,
+        this->image->get_frame_descriptor_set(this->frame_index),
+        0,
+        nullptr
+    );
     vkCmdDrawIndexed(this->command_buffer, 6, 1, 0, 0, 0);
     return FRAME_SUCCESS;
 }

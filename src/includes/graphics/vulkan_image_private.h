@@ -1,6 +1,5 @@
 #pragma once
 
-#include <glm/glm.hpp>
 #include <vector>
 #include <vulkan/vulkan.h>
 #include "./vulkan_device_private.h"
@@ -11,12 +10,6 @@ typedef int VulkanImageResult;
 #define VULKAN_IMAGE_INIT_FAILURE 1
 
 using namespace std;
-using namespace glm;
-
-struct Vertex {
-    vec2 pos;
-    vec3 color;
-};
 
 /*
  * Module wraps around vulkan resources which describe an image or
@@ -32,6 +25,12 @@ class VulkanImage {
         VkFormat swap_chain_image_format;
         VkExtent2D swap_chain_extent;
         VkRenderPass render_pass;
+        vector<VkDeviceMemory> uniform_frame_buffers_memory;
+        vector<VkBuffer> uniform_frame_buffers;
+        vector<void*> uniform_frame_buffers_cpu_mapped;
+        vector<VkDescriptorSet> descriptor_sets;
+        VkDescriptorPool descriptor_pool;
+        VkDescriptorSetLayout descriptor_set_layout;
         VkPipelineLayout pipeline_layout;
         VkPipeline graphics_pipeline;
         VkDeviceMemory vertex_buffer_memory;
@@ -80,6 +79,11 @@ class VulkanImage {
         VkFramebuffer get_framebuffer(size_t i);
 
         /*
+         * Return a handle to the graphics pipeline layout
+         */
+        VkPipelineLayout get_graphics_pipeline_layout();
+
+        /*
          * Return a handle to the graphics pipeline
          */
         VkPipeline get_graphics_pipeline();
@@ -123,6 +127,16 @@ class VulkanImage {
          * Return a handle to the index buffer
          */
         VkBuffer get_index_staging_buffer();
+
+        /*
+         * Return a handle to the ith frames descriptor set
+         */
+        VkDescriptorSet* get_frame_descriptor_set(size_t i);
+
+        /*
+         * Return a handle to the ith frames uniform buffer
+         */
+        void* get_uniform_frame_buffer_cpu_mapped(size_t i);
 
         /*
          * Frees the image related resources

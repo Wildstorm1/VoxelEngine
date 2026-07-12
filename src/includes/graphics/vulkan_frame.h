@@ -24,17 +24,21 @@ class VulkanFrame : public Frame {
         VkSemaphore image_available_semaphore;
         VkFence in_flight_fence;
         uint32_t image_index;
+        size_t frame_index;
 
     public:
         VulkanFrame(
             VulkanDevice *device,
             VulkanImage *image,
-            VkCommandPool command_pool
+            VkCommandPool command_pool,
+            size_t frame_index
         );
 
         FrameResult init();
 
         FrameResult begin_frame();
+
+        FrameResult set_camera(UniformBufferObject camera);
 
         FrameResult draw();
 

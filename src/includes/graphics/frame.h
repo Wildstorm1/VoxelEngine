@@ -1,11 +1,26 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 typedef int FrameResult;
 
 #define FRAME_SUCCESS 0
 #define FRAME_FAILURE 1
+#define MAX_FRAMES_IN_FLIGHT 2
 
 using namespace std;
+using namespace glm;
+
+struct UniformBufferObject {
+    mat4 model;
+    mat4 view;
+    mat4 proj;
+};
+
+struct Vertex {
+    vec2 pos;
+    vec3 color;
+};
 
 /*
  * Module defines an interface for the rendering engine
@@ -24,6 +39,11 @@ class Frame {
          * Begins the frame for drawing
          */
         virtual FrameResult begin_frame() = 0;
+
+        /*
+         * Draw geometry to the frame using the following camera
+         */
+        virtual FrameResult set_camera(UniformBufferObject camera) = 0;
 
         /*
          * Draw geometry to the frame

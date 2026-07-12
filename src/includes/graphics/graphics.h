@@ -19,6 +19,7 @@ class Graphics {
         VulkanDevice device;
         VulkanImage image;
 
+        UniformBufferObject camera;
         SDL_Window *window;
         VkCommandPool command_pool;
         vector<Frame*> frame_buffer;
@@ -30,7 +31,7 @@ class Graphics {
         int init(SDL_Window *window);
         int resize_window();
         void begin_render_pass();
-        void draw();
+        void draw(float delta_time);
         void end_render_pass();
         SDL_Window *release();
 };

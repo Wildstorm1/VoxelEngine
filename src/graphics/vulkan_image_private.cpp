@@ -6,6 +6,8 @@
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
+#include "../includes/graphics/memory.h"
+#include "../includes/graphics/frame.h"
 #include "../includes/graphics/vulkan_image_private.h"
 #include "../includes/graphics/vulkan_device_private.h"
 
@@ -320,8 +322,47 @@ ShaderDetails loadShaders(
     return details;
 }
 
+VkResult create_descriptor_set_layout(
+    VulkanDevice *device,
+    VkDescriptorSetLayout *descriptor_set_layout
+) {
+    VkDescriptorSetLayoutBinding uboLayoutBinding {};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &uboLayoutBinding;
+
+    return vkCreateDescriptorSetLayout(device->get_device(), &layoutInfo, nullptr, descriptor_set_layout);
+}
+
+VkResult create_descriptor_pool(
+    VulkanDevice *device,
+    VkDescriptorPool *descriptor_pool
+) {
+    // Allocate 1 per frame, but the size is ambiguous (magic 2's)
+    VkDescriptorPoolSize poolSize {};
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    return vkCreateDescriptorPool(device->get_device(), &poolInfo, nullptr, descriptor_pool);
+}
+
 VulkanImageResult setup_draw_pipeline(
     VulkanDevice *device,
+    VkDescriptorSetLayout *descriptor_set_layout,
+    VkDescriptorPool *descriptor_pool,
     VkExtent2D *swap_chain_extent,
     VkRenderPass *render_pass,
     VkPipelineLayout *pipeline_layout,
@@ -396,7 +437,7 @@ VulkanImageResult setup_draw_pipeline(
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
     rasterizer.depthBiasClamp = 0.0f; // Optional
@@ -432,10 +473,28 @@ VulkanImageResult setup_draw_pipeline(
     colorBlending.blendConstants[2] = 0.0f; // Optional
     colorBlending.blendConstants[3] = 0.0f; // Optional
 
+    VkResult descriptorSetLayoutResult = create_descriptor_set_layout(device, descriptor_set_layout);
+
+    if (descriptorSetLayoutResult == VK_SUCCESS) {
+        cout << "Successfully created vulkan descriptor set layout" << endl;
+    } else {
+        cout << "Could not create descriptor set layout" << endl;
+        return VULKAN_IMAGE_INIT_FAILURE;
+    }
+
+    VkResult descriptorSetPoolResult = create_descriptor_pool(device, descriptor_pool);
+
+    if (descriptorSetPoolResult == VK_SUCCESS) {
+        cout << "Successfully created vulkan descriptor pool" << endl;
+    } else {
+        cout << "Could not create descriptor pool" << endl;
+        return VULKAN_IMAGE_INIT_FAILURE;
+    }
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0; // Optional
-    pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
+    pipelineLayoutInfo.setLayoutCount = 1; // Optional
+    pipelineLayoutInfo.pSetLayouts = descriptor_set_layout; // Optional
     pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
     pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
@@ -478,68 +537,6 @@ VulkanImageResult setup_draw_pipeline(
     vkDestroyShaderModule(device->get_device(), shaderDetails.fragment_shader_module, nullptr);
     vkDestroyShaderModule(device->get_device(), shaderDetails.vertex_shader_module, nullptr);
     return VULKAN_IMAGE_INIT_SUCCESS;
-}
-
-uint32_t find_memory_type(
-    VulkanDevice *device,
-    uint32_t typeFilter,
-    VkMemoryPropertyFlags properties
-) {
-    DeviceInfos* device_info = device->get_device_info();
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(device_info->device, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            return i;
-        }
-    }
-
-    throw std::runtime_error("Failed to find suitable memory type!");
-}
-
-VkResult create_buffer(
-    VulkanDevice *device,
-    VkDeviceSize size,
-    VkBufferUsageFlags usage,
-    VkMemoryPropertyFlags properties,
-    VkBuffer *buffer,
-    VkDeviceMemory *buffer_memory
-) {
-    VkBufferCreateInfo bufferInfo {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VkResult buffer_result = vkCreateBuffer(device->get_device(), &bufferInfo, nullptr, buffer);
-
-    if (buffer_result == VK_SUCCESS) {
-        cout << "Successfully created vulkan vertex buffer" << endl;
-    } else {
-        cout << "Could not create vertex buffer" << endl;
-        return buffer_result;
-    }
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device->get_device(), *buffer, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = find_memory_type(device, memRequirements.memoryTypeBits, properties);
-
-    VkResult buffer_memory_result = vkAllocateMemory(device->get_device(), &allocInfo, nullptr, buffer_memory);
-
-    if (buffer_memory_result == VK_SUCCESS) {
-        cout << "Successfully created vulkan buffer memory block" << endl;
-    } else {
-        cout << "Could not allocate device memory block" << endl;
-        return buffer_result;
-    }
-
-    vkBindBufferMemory(device->get_device(), *buffer, *buffer_memory, 0);
-    return VK_SUCCESS;
 }
 
 VulkanImageResult VulkanImage::init(
@@ -593,7 +590,13 @@ VulkanImageResult VulkanImage::init(
     }
 
     VulkanImageResult draw_pipeline = setup_draw_pipeline(
-        device, &this->swap_chain_extent, &this->render_pass, &this->pipeline_layout, &this->graphics_pipeline
+        device,
+        &this->descriptor_set_layout,
+        &this->descriptor_pool,
+        &this->swap_chain_extent,
+        &this->render_pass,
+        &this->pipeline_layout,
+        &this->graphics_pipeline
     );
 
     if (draw_pipeline == VULKAN_IMAGE_INIT_SUCCESS) {
@@ -667,6 +670,68 @@ VulkanImageResult VulkanImage::init(
         return VULKAN_IMAGE_INIT_FAILURE;
     }
 
+    this->uniform_frame_buffers.resize(MAX_FRAMES_IN_FLIGHT);
+    this->uniform_frame_buffers_cpu_mapped.resize(MAX_FRAMES_IN_FLIGHT);
+    this->uniform_frame_buffers_memory.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkResult ubo_buffer_result = create_buffer(
+            device,
+            sizeof(UniformBufferObject),
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            &this->uniform_frame_buffers[i],
+            &this->uniform_frame_buffers_memory[i]
+        );
+
+        if (ubo_buffer_result == VK_SUCCESS) {
+            cout << "Successfully created vulkan ubo buffer" << endl;
+        } else {
+            cout << "Could not create ubo buffer" << endl;
+            return FRAME_FAILURE;
+        }
+
+        vkMapMemory(device->get_device(), this->uniform_frame_buffers_memory[i], 0, sizeof(UniformBufferObject), 0, &this->uniform_frame_buffers_cpu_mapped[i]);
+    }
+
+    vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, this->descriptor_set_layout);
+    VkDescriptorSetAllocateInfo dsetAllocInfo {};
+    dsetAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    dsetAllocInfo.descriptorPool = this->descriptor_pool;
+    dsetAllocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    dsetAllocInfo.pSetLayouts = layouts.data();
+
+    this->descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
+
+    VkResult allocateDescriptorSet = vkAllocateDescriptorSets(device->get_device(), &dsetAllocInfo, this->descriptor_sets.data());
+
+    if (allocateDescriptorSet == VK_SUCCESS) {
+        cout << "Successfully created vulkan descriptor set" << endl;
+    } else {
+        cout << "Could not create descriptor set" << endl;
+        return FRAME_FAILURE;
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorBufferInfo bufferInfo {};
+        bufferInfo.buffer = this->uniform_frame_buffers[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(UniformBufferObject);
+
+        VkWriteDescriptorSet descriptorWrite {};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = this->descriptor_sets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pBufferInfo = &bufferInfo;
+        descriptorWrite.pImageInfo = nullptr; // Optional
+        descriptorWrite.pTexelBufferView = nullptr; // Optional
+
+        vkUpdateDescriptorSets(device->get_device(), 1, &descriptorWrite, 0, nullptr);
+    }
+
     VkSemaphoreCreateInfo semaphoreInfo {};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -701,6 +766,10 @@ VkSemaphore VulkanImage::get_framebuffer_semaphore(size_t i) {
 
 VkFramebuffer VulkanImage::get_framebuffer(size_t i) {
     return this->swap_chain_framebuffers[i];
+}
+
+VkPipelineLayout VulkanImage::get_graphics_pipeline_layout() {
+    return this->pipeline_layout;
 }
 
 VkPipeline VulkanImage::get_graphics_pipeline() {
@@ -739,6 +808,14 @@ VkBuffer VulkanImage::get_index_staging_buffer() {
     return this->index_staging_buffer;
 }
 
+VkDescriptorSet* VulkanImage::get_frame_descriptor_set(size_t i) {
+    return &this->descriptor_sets[i];
+}
+
+void* VulkanImage::get_uniform_frame_buffer_cpu_mapped(size_t i) {
+    return this->uniform_frame_buffers_cpu_mapped[i];
+}
+
 void VulkanImage::destroy(
     VulkanDevice *device
 ) {
@@ -748,13 +825,23 @@ void VulkanImage::destroy(
         vkDestroySemaphore(device->get_device(), this->render_framebuffer_semaphores[i], nullptr);
     }
 
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroyBuffer(device->get_device(), this->uniform_frame_buffers[i], nullptr);
+        vkFreeMemory(device->get_device(), this->uniform_frame_buffers_memory[i], nullptr);
+    }
+
+    vkDestroyBuffer(device->get_device(), this->index_staging_buffer, nullptr);
+    vkFreeMemory(device->get_device(), this->index_staging_buffer_memory, nullptr);
     vkDestroyBuffer(device->get_device(), this->index_buffer, nullptr);
     vkFreeMemory(device->get_device(), this->index_buffer_memory, nullptr);
     vkDestroyBuffer(device->get_device(), this->vertex_staging_buffer, nullptr);
     vkFreeMemory(device->get_device(), this->vertex_staging_buffer_memory, nullptr);
     vkDestroyBuffer(device->get_device(), this->vertex_buffer, nullptr);
     vkFreeMemory(device->get_device(), this->vertex_buffer_memory, nullptr);
+
     vkDestroyPipeline(device->get_device(), this->graphics_pipeline, nullptr);
+    vkDestroyDescriptorPool(device->get_device(), this->descriptor_pool, nullptr);
+    vkDestroyDescriptorSetLayout(device->get_device(), this->descriptor_set_layout, nullptr);
     vkDestroyPipelineLayout(device->get_device(), this->pipeline_layout, nullptr);
 
     for (auto framebuffer : this->swap_chain_framebuffers) {
