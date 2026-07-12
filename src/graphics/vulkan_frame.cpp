@@ -91,9 +91,12 @@ FrameResult VulkanFrame::begin_frame() {
     renderPassInfo.renderArea.offset = { 0, 0 };
     renderPassInfo.renderArea.extent = this->image->get_swapchain_extent();
 
-    VkClearValue clearColor = {{{ 0.0f, 0.0f, 0.0f, 1.0f }}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
+    array<VkClearValue, 2> clearValues{};
+    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    clearValues[1].depthStencil = {1.0f, 0};
+
+    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(this->command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(this->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, this->image->get_graphics_pipeline());
@@ -121,17 +124,22 @@ void copy_vertex_cpu_staging_buffer_to_gpu(
     VulkanImage *image,
     VkCommandPool command_pool
 ) {
+    // Top face of a cube
     const vector<Vertex> vertices = {
-        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+        {{0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
+        {{1.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
+        {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+        {{0.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{0.0f, 0.0f, 0.75f}, {1.0f, 0.0f, 0.0f}},
+        {{1.0f, 0.0f, 0.75f}, {0.0f, 1.0f, 0.0f}},
+        {{1.0f, 1.0f, 0.75f}, {0.0f, 0.0f, 1.0f}},
+        {{0.0f, 1.0f, 0.75f}, {1.0f, 1.0f, 1.0f}},
     };
 
     // Copy into staging buffer
     void* data;
-    vkMapMemory(device->get_device(), image->get_vertex_staging_buffer_device_memory(), 0, sizeof(Vertex) * 4, 0, &data);
-    memcpy(data, vertices.data(), (size_t) sizeof(Vertex) * 4);
+    vkMapMemory(device->get_device(), image->get_vertex_staging_buffer_device_memory(), 0, sizeof(Vertex) * 8, 0, &data);
+    memcpy(data, vertices.data(), (size_t) sizeof(Vertex) * 8);
     vkUnmapMemory(device->get_device(), image->get_vertex_staging_buffer_device_memory());
 
     // Transfer from staging buffer to gpu buffer
@@ -150,11 +158,11 @@ void copy_vertex_cpu_staging_buffer_to_gpu(
 
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-    VkBufferCopy copyRegion{};
+    VkBufferCopy copyRegion {};
     copyRegion.srcOffset = 0; // Optional
     copyRegion.dstOffset = 0; // Optional
-    copyRegion.size = (size_t) sizeof(Vertex) * 4;
-    vkCmdCopyBuffer(commandBuffer, image->get_vertex_staging_buffer(),image->get_vertex_buffer(), 1, &copyRegion);
+    copyRegion.size = (size_t) sizeof(Vertex) * 8;
+    vkCmdCopyBuffer(commandBuffer, image->get_vertex_staging_buffer(), image->get_vertex_buffer(), 1, &copyRegion);
     vkEndCommandBuffer(commandBuffer);
 
     // Submit the copy for processing
@@ -176,13 +184,14 @@ void copy_index_cpu_staging_buffer_to_gpu(
     VkCommandPool command_pool
 ) {
     const vector<uint16_t> indices = {
-        0, 1, 2, 2, 3, 0
+        0, 1, 2, 2, 3, 0,
+        4, 5, 6, 6, 7, 4
     };
 
     // Copy into staging buffer
     void* data;
-    vkMapMemory(device->get_device(), image->get_index_staging_buffer_device_memory(), 0, sizeof(uint16_t) * 6, 0, &data);
-    memcpy(data, indices.data(), (size_t) sizeof(uint16_t) * 6);
+    vkMapMemory(device->get_device(), image->get_index_staging_buffer_device_memory(), 0, sizeof(uint16_t) * 36, 0, &data);
+    memcpy(data, indices.data(), (size_t) sizeof(uint16_t) * 36);
     vkUnmapMemory(device->get_device(), image->get_index_staging_buffer_device_memory());
 
     // Transfer from staging buffer to gpu buffer
@@ -204,7 +213,7 @@ void copy_index_cpu_staging_buffer_to_gpu(
     VkBufferCopy copyRegion{};
     copyRegion.srcOffset = 0; // Optional
     copyRegion.dstOffset = 0; // Optional
-    copyRegion.size = (size_t) sizeof(uint16_t) * 6;
+    copyRegion.size = (size_t) sizeof(uint16_t) * 36;
     vkCmdCopyBuffer(commandBuffer, image->get_index_staging_buffer(), image->get_index_buffer(), 1, &copyRegion);
     vkEndCommandBuffer(commandBuffer);
 
@@ -250,7 +259,7 @@ FrameResult VulkanFrame::draw() {
         0,
         nullptr
     );
-    vkCmdDrawIndexed(this->command_buffer, 6, 1, 0, 0, 0);
+    vkCmdDrawIndexed(this->command_buffer, 12, 1, 0, 0, 0);
     return FRAME_SUCCESS;
 }
 

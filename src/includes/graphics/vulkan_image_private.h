@@ -41,6 +41,9 @@ class VulkanImage {
         VkBuffer index_buffer;
         VkDeviceMemory index_staging_buffer_memory;
         VkBuffer index_staging_buffer;
+        VkImage depth_image;
+        VkDeviceMemory depth_image_memory;
+        VkImageView depth_image_view;
 
     public:
         VulkanImage();

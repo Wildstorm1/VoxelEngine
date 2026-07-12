@@ -18,7 +18,7 @@ struct UniformBufferObject {
 };
 
 struct Vertex {
-    vec2 pos;
+    vec3 pos;
     vec3 color;
 };
 
