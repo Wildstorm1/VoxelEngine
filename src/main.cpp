@@ -14,19 +14,20 @@
 
 using namespace std;
 
-UniformBufferObject camera;
-float x = 400;
-float y = 300;
+constexpr uint32_t windowStartWidth = 1600;
+constexpr uint32_t windowStartHeight = 1200;
 
-float yaw = 0;
+UniformBufferObject camera;
+float x = windowStartWidth / 2;
+float y = windowStartHeight / 2;
+
+float yaw = 3.0f * glm::half_pi<float>();
 float pitch = 0;
 
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-constexpr uint32_t windowStartWidth = 800;
-constexpr uint32_t windowStartHeight = 600;
 chrono::steady_clock::time_point start_time;
 float delta_time = 0;
 void *graphics_memory = nullptr;
@@ -50,8 +51,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         return SDL_Fail();
     }
 
-    SDL_SetWindowRelativeMouseMode(window, true);
-    SDL_CaptureMouse(true);
+    //SDL_SetWindowRelativeMouseMode(window, true);
+    //SDL_CaptureMouse(true);
     SDL_WarpMouseInWindow(window, windowStartWidth / 2, windowStartHeight / 2);
 
     graphics_memory = malloc(sizeof(Graphics));
@@ -78,6 +79,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     }
 
     if (event->type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
+        // This isn't handled correctly now because x,y above. Also the mouse is locked
         graphics->resize_window();
     }
 
@@ -137,8 +139,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
     WindowSize size = graphics->get_window_size();
 
-    camera.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    //camera.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    camera.model = glm::mat4(1.0); // Not part of the camera
     camera.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
     camera.proj = glm::perspective(glm::radians(45.0f), size.width / (float) size.height, 0.1f, 1000.0f);
     camera.proj[1][1] *= -1;

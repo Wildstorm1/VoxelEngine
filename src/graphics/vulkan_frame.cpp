@@ -119,106 +119,104 @@ FrameResult VulkanFrame::begin_frame() {
     return FRAME_SUCCESS;
 }
 
-void push_top_face(
+void push_face(
+    vec3 voxel_offset,
+    vec3 vertex_0,
+    vec3 vertex_1,
+    vec3 vertex_2,
+    vec3 vertex_3,
     vector<Vertex> *vertices,
     vector<uint16_t> *indicies
 ) {
     uint16_t index = (uint16_t) vertices->size();
-    vertices->push_back({{0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}});
-    vertices->push_back({{1.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}});
-    vertices->push_back({{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}});
-    vertices->push_back({{0.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}});
+    vertices->push_back({vertex_0, {1.0f, 0.0f, 0.0f}});
+    vertices->push_back({vertex_1, {0.0f, 1.0f, 0.0f}});
+    vertices->push_back({vertex_2, {0.0f, 0.0f, 1.0f}});
+    vertices->push_back({vertex_3, {1.0f, 1.0f, 1.0f}});
     indicies->push_back(index);
     indicies->push_back(index + 1);
     indicies->push_back(index + 2);
     indicies->push_back(index + 2);
+    indicies->push_back(index + 1);
     indicies->push_back(index + 3);
-    indicies->push_back(index);
+}
+
+void push_top_face(
+    vec3 voxel_offset,
+    vector<Vertex> *vertices,
+    vector<uint16_t> *indicies
+) {
+    uint16_t index = (uint16_t) vertices->size();
+    vec3 v0 = voxel_offset + vec3(0.0f, 0.0f, 1.0f);
+    vec3 v1 = voxel_offset + vec3(1.0f, 0.0f, 1.0f);
+    vec3 v2 = voxel_offset + vec3(0.0f, 1.0f, 1.0f);
+    vec3 v3 = voxel_offset + vec3(1.0f, 1.0f, 1.0f);
+    push_face(voxel_offset, v0, v1, v2, v3, vertices, indicies);
 }
 
 void push_right_face(
+    vec3 voxel_offset,
     vector<Vertex> *vertices,
     vector<uint16_t> *indicies
 ) {
     uint16_t index = (uint16_t) vertices->size();
-    vertices->push_back({{1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}});
-    vertices->push_back({{1.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}});
-    vertices->push_back({{1.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}});
-    vertices->push_back({{1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}});
-    indicies->push_back(index);
-    indicies->push_back(index + 1);
-    indicies->push_back(index + 2);
-    indicies->push_back(index + 2);
-    indicies->push_back(index + 1);
-    indicies->push_back(index + 3);
+    vec3 v0 = voxel_offset + vec3(1.0f, 0.0f, 0.0f);
+    vec3 v1 = voxel_offset + vec3(1.0f, 1.0f, 0.0f);
+    vec3 v2 = voxel_offset + vec3(1.0f, 0.0f, 1.0f);
+    vec3 v3 = voxel_offset + vec3(1.0f, 1.0f, 1.0f);
+    push_face(voxel_offset, v0, v1, v2, v3, vertices, indicies);
 }
 
 void push_front_face(
+    vec3 voxel_offset,
     vector<Vertex> *vertices,
     vector<uint16_t> *indicies
 ) {
     uint16_t index = (uint16_t) vertices->size();
-    vertices->push_back({{0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}});
-    vertices->push_back({{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}});
-    vertices->push_back({{0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}});
-    vertices->push_back({{1.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}});
-    indicies->push_back(index);
-    indicies->push_back(index + 1);
-    indicies->push_back(index + 2);
-    indicies->push_back(index + 2);
-    indicies->push_back(index + 1);
-    indicies->push_back(index + 3);
+    vec3 v0 = voxel_offset + vec3(0.0f, 0.0f, 0.0f);
+    vec3 v1 = voxel_offset + vec3(1.0f, 0.0f, 0.0f);
+    vec3 v2 = voxel_offset + vec3(0.0f, 0.0f, 1.0f);
+    vec3 v3 = voxel_offset + vec3(1.0f, 0.0f, 1.0f);
+    push_face(voxel_offset, v0, v1, v2, v3, vertices, indicies);
 }
 
 void push_bottom_face(
+    vec3 voxel_offset,
     vector<Vertex> *vertices,
     vector<uint16_t> *indicies
 ) {
     uint16_t index = (uint16_t) vertices->size();
-    vertices->push_back({{0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}});
-    vertices->push_back({{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}});
-    vertices->push_back({{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}});
-    vertices->push_back({{0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}});
-    indicies->push_back(index + 2);
-    indicies->push_back(index + 1);
-    indicies->push_back(index + 0);
-    indicies->push_back(index + 0);
-    indicies->push_back(index + 3);
-    indicies->push_back(index + 2);
+    vec3 v0 = voxel_offset + vec3(0.0f, 0.0f, 0.0f);
+    vec3 v1 = voxel_offset + vec3(0.0f, 1.0f, 0.0f);
+    vec3 v2 = voxel_offset + vec3(1.0f, 0.0f, 0.0f);
+    vec3 v3 = voxel_offset + vec3(1.0f, 1.0f, 0.0f);
+    push_face(voxel_offset, v0, v1, v2, v3, vertices, indicies);
 }
 
 void push_left_face(
+    vec3 voxel_offset,
     vector<Vertex> *vertices,
     vector<uint16_t> *indicies
 ) {
     uint16_t index = (uint16_t) vertices->size();
-    vertices->push_back({{0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}});
-    vertices->push_back({{0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}});
-    vertices->push_back({{0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}});
-    vertices->push_back({{0.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}});
-    indicies->push_back(index);
-    indicies->push_back(index + 1);
-    indicies->push_back(index + 2);
-    indicies->push_back(index + 2);
-    indicies->push_back(index + 1);
-    indicies->push_back(index + 3);
+    vec3 v0 = voxel_offset + vec3(0.0f, 0.0f, 0.0f);
+    vec3 v1 = voxel_offset + vec3(0.0f, 0.0f, 1.0f);
+    vec3 v2 = voxel_offset + vec3(0.0f, 1.0f, 0.0f);
+    vec3 v3 = voxel_offset + vec3(0.0f, 1.0f, 1.0f);
+    push_face(voxel_offset, v0, v1, v2, v3, vertices, indicies);
 }
 
 void push_back_face(
+    vec3 voxel_offset,
     vector<Vertex> *vertices,
     vector<uint16_t> *indicies
 ) {
     uint16_t index = (uint16_t) vertices->size();
-    vertices->push_back({{0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}});
-    vertices->push_back({{0.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}});
-    vertices->push_back({{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}});
-    vertices->push_back({{1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}});
-    indicies->push_back(index);
-    indicies->push_back(index + 1);
-    indicies->push_back(index + 2);
-    indicies->push_back(index + 2);
-    indicies->push_back(index + 1);
-    indicies->push_back(index + 3);
+    vec3 v0 = voxel_offset + vec3(0.0f, 1.0f, 0.0f);
+    vec3 v1 = voxel_offset + vec3(0.0f, 1.0f, 1.0f);
+    vec3 v2 = voxel_offset + vec3(1.0f, 1.0f, 0.0f);
+    vec3 v3 = voxel_offset + vec3(1.0f, 1.0f, 1.0f);
+    push_face(voxel_offset, v0, v1, v2, v3, vertices, indicies);
 }
 
 void copy_vertex_cpu_staging_buffer_to_gpu(
@@ -329,13 +327,38 @@ FrameResult VulkanFrame::set_camera(
 FrameResult VulkanFrame::draw() {
     vector<uint16_t> indices;
     vector<Vertex> vertices;
+    vec3 v0 = {0.0f, 0.0f, 0.0f};
+    vec3 v1 = {0.0f, 1.0f, 0.0f};
+    vec3 v2 = {1.0f, 1.0f, 0.0f};
+    vec3 v3 = {0.0f, 1.0f, 1.0f};
 
-    push_top_face(&vertices, &indices);
-    push_bottom_face(&vertices, &indices);
-    push_right_face(&vertices, &indices);
-    push_left_face(&vertices, &indices);
-    push_front_face(&vertices, &indices);
-    push_back_face(&vertices, &indices);
+    push_top_face(v0, &vertices, &indices);
+    push_bottom_face(v0, &vertices, &indices);
+    push_right_face(v0, &vertices, &indices);
+    push_left_face(v0, &vertices, &indices);
+    push_front_face(v0, &vertices, &indices);
+    push_back_face(v0, &vertices, &indices);
+
+    push_top_face(v1, &vertices, &indices);
+    push_bottom_face(v1, &vertices, &indices);
+    push_right_face(v1, &vertices, &indices);
+    push_left_face(v1, &vertices, &indices);
+    push_front_face(v1, &vertices, &indices);
+    push_back_face(v1, &vertices, &indices);
+
+    push_top_face(v2, &vertices, &indices);
+    push_bottom_face(v2, &vertices, &indices);
+    push_right_face(v2, &vertices, &indices);
+    push_left_face(v2, &vertices, &indices);
+    push_front_face(v2, &vertices, &indices);
+    push_back_face(v2, &vertices, &indices);
+
+    push_top_face(v3, &vertices, &indices);
+    push_bottom_face(v3, &vertices, &indices);
+    push_right_face(v3, &vertices, &indices);
+    push_left_face(v3, &vertices, &indices);
+    push_front_face(v3, &vertices, &indices);
+    push_back_face(v3, &vertices, &indices);
 
     copy_vertex_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, &vertices);
     copy_index_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, &indices);
