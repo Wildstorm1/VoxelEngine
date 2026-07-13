@@ -9,8 +9,10 @@
 #include <SDL3/SDL_init.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <FastNoise/FastNoise.h>
 #include "./includes/graphics/frame.h"
 #include "./includes/graphics/graphics.h"
+#include "./includes/voxels/chunk.h"
 
 using namespace std;
 
@@ -33,6 +35,10 @@ float delta_time = 0;
 void *graphics_memory = nullptr;
 Graphics *graphics = nullptr;
 SDL_Window* window = nullptr;
+Chunk* chunk = nullptr;
+
+auto simplex = FastNoise::New<FastNoise::Simplex>();
+auto fractal = FastNoise::New<FastNoise::FractalFBm>();
 
 SDL_AppResult SDL_Fail() {
     SDL_LogError(SDL_LOG_CATEGORY_CUSTOM, "Error %s", SDL_GetError());
@@ -66,6 +72,26 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     if (initResult == EXIT_FAILURE) {
         return SDL_Fail();
+    }
+
+    fractal->SetSource(simplex);
+    fractal->SetOctaveCount(5);
+
+    std::vector<float> noise(64 * 64 * 64);
+    fractal->GenUniformGrid3D(noise.data(), 0, 0, 0, 64, 64, 64, 1, 1, 1, 1337);
+
+    chunk = new Chunk(CHUNK_SIZE_32);
+
+    for (size_t x = 0; x < 32; x++) {
+        for (size_t y = 0; y < 32; y++) {
+            for (size_t z = 0; z < 32; z++) {
+                if (noise[x*32*32 + y*32 + z] > 0) {
+                    chunk->set_voxel_id(x, y, z, 1);
+                } else {
+                    chunk->set_voxel_id(x, y, z, 0);
+                }
+            }
+        }
     }
 
     start_time = chrono::high_resolution_clock::now();
@@ -146,7 +172,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
     graphics->set_camera(camera);
     graphics->begin_render_pass();
-    graphics->draw(delta_time);
+    graphics->draw_chunk(chunk);
+    cout << "delta time: " << delta_time << endl;
     graphics->end_render_pass();
 
     return SDL_APP_CONTINUE;

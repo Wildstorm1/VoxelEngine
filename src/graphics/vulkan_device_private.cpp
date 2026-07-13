@@ -124,6 +124,7 @@ DeviceInfos* select_physical_device(
 
         cout << "\t Found Device: " << device_properties.deviceName << endl;
         cout << "\t\t Device Type: " << device_properties.deviceType << endl;
+        cout << "\t\t Device Index Limit: " << device_properties.limits.maxDrawIndexedIndexValue << endl;
 
         DeviceInfos* heap_infos = new DeviceInfos();
         device_scores[physical_device] = heap_infos;

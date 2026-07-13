@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include "../voxels/chunk.h";
 
 typedef int FrameResult;
 
@@ -48,7 +49,7 @@ class Frame {
         /*
          * Draw geometry to the frame
          */
-        virtual FrameResult draw() = 0;
+        virtual FrameResult draw_chunk(Chunk *chunk) = 0;
 
         /*
          * Finish drawing the frame

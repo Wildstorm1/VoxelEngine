@@ -783,7 +783,7 @@ VulkanImageResult VulkanImage::init(
 
     VkResult vertex_buffer_result = create_buffer(
         device,
-        sizeof(Vertex) * 46656,
+        sizeof(Vertex) * 4097152,
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         &this->vertex_buffer,
@@ -799,7 +799,7 @@ VulkanImageResult VulkanImage::init(
 
     VkResult staging_buffer_result = create_buffer(
         device,
-        sizeof(Vertex) * 46656,
+        sizeof(Vertex) * 4097152,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         &this->vertex_staging_buffer,
@@ -815,7 +815,7 @@ VulkanImageResult VulkanImage::init(
 
     VkResult index_buffer_result = create_buffer(
         device,
-        sizeof(uint16_t) * 46656,
+        sizeof(uint16_t) * 4097152,
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         &this->index_buffer,
@@ -831,7 +831,7 @@ VulkanImageResult VulkanImage::init(
 
     VkResult index_staging_buffer_result = create_buffer(
         device,
-        sizeof(uint16_t) * 46656,
+        sizeof(uint16_t) * 4097152,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         &this->index_staging_buffer,

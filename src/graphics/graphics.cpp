@@ -107,9 +107,8 @@ void Graphics::set_camera(UniformBufferObject camera) {
 /*
  * Draws objects during a render pass
  */
-void Graphics::draw(float delta_time) {
-    cout << "delta time: " << delta_time << endl;
-    this->frame_buffer[this->frame_index]->draw();
+void Graphics::draw_chunk(Chunk *chunk) {
+    this->frame_buffer[this->frame_index]->draw_chunk(chunk);
 }
 
 /*
