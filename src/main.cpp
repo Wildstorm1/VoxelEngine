@@ -140,7 +140,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     camera.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     //camera.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     camera.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-    camera.proj = glm::perspective(glm::radians(45.0f), size.width / (float) size.height, 0.1f, 10.0f);
+    camera.proj = glm::perspective(glm::radians(45.0f), size.width / (float) size.height, 0.1f, 1000.0f);
     camera.proj[1][1] *= -1;
 
     graphics->set_camera(camera);
