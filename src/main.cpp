@@ -121,12 +121,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     yaw = yaw + dx;
     pitch = pitch - dy;
 
-    if (pitch > glm::half_pi<float>() - 0.017) {
-        pitch = glm::half_pi<float>() - 0.017;
+    if (pitch > glm::half_pi<float>() - 0.017f) {
+        pitch = glm::half_pi<float>() - 0.017f;
     }
  
-    if (pitch < -1 * glm::half_pi<float>() + 0.017) {
-        pitch = -1 * glm::half_pi<float>() + 0.017;
+    if (pitch < -1 * glm::half_pi<float>() + 0.017f) {
+        pitch = -1 * glm::half_pi<float>() + 0.017f;
     }
 
     glm::vec3 direction;
