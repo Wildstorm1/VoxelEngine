@@ -119,27 +119,118 @@ FrameResult VulkanFrame::begin_frame() {
     return FRAME_SUCCESS;
 }
 
+void push_top_face(
+    vector<Vertex> *vertices,
+    vector<uint16_t> *indicies
+) {
+    uint16_t index = (uint16_t) vertices->size();
+    vertices->push_back({{0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}});
+    vertices->push_back({{1.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}});
+    vertices->push_back({{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}});
+    vertices->push_back({{0.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}});
+    indicies->push_back(index);
+    indicies->push_back(index + 1);
+    indicies->push_back(index + 2);
+    indicies->push_back(index + 2);
+    indicies->push_back(index + 3);
+    indicies->push_back(index);
+}
+
+void push_right_face(
+    vector<Vertex> *vertices,
+    vector<uint16_t> *indicies
+) {
+    uint16_t index = (uint16_t) vertices->size();
+    vertices->push_back({{1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}});
+    vertices->push_back({{1.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}});
+    vertices->push_back({{1.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}});
+    vertices->push_back({{1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}});
+    indicies->push_back(index);
+    indicies->push_back(index + 1);
+    indicies->push_back(index + 2);
+    indicies->push_back(index + 2);
+    indicies->push_back(index + 1);
+    indicies->push_back(index + 3);
+}
+
+void push_front_face(
+    vector<Vertex> *vertices,
+    vector<uint16_t> *indicies
+) {
+    uint16_t index = (uint16_t) vertices->size();
+    vertices->push_back({{0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}});
+    vertices->push_back({{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}});
+    vertices->push_back({{0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}});
+    vertices->push_back({{1.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}});
+    indicies->push_back(index);
+    indicies->push_back(index + 1);
+    indicies->push_back(index + 2);
+    indicies->push_back(index + 2);
+    indicies->push_back(index + 1);
+    indicies->push_back(index + 3);
+}
+
+void push_bottom_face(
+    vector<Vertex> *vertices,
+    vector<uint16_t> *indicies
+) {
+    uint16_t index = (uint16_t) vertices->size();
+    vertices->push_back({{0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}});
+    vertices->push_back({{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}});
+    vertices->push_back({{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}});
+    vertices->push_back({{0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}});
+    indicies->push_back(index + 2);
+    indicies->push_back(index + 1);
+    indicies->push_back(index + 0);
+    indicies->push_back(index + 0);
+    indicies->push_back(index + 3);
+    indicies->push_back(index + 2);
+}
+
+void push_left_face(
+    vector<Vertex> *vertices,
+    vector<uint16_t> *indicies
+) {
+    uint16_t index = (uint16_t) vertices->size();
+    vertices->push_back({{0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}});
+    vertices->push_back({{0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}});
+    vertices->push_back({{0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}});
+    vertices->push_back({{0.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}});
+    indicies->push_back(index);
+    indicies->push_back(index + 1);
+    indicies->push_back(index + 2);
+    indicies->push_back(index + 2);
+    indicies->push_back(index + 1);
+    indicies->push_back(index + 3);
+}
+
+void push_back_face(
+    vector<Vertex> *vertices,
+    vector<uint16_t> *indicies
+) {
+    uint16_t index = (uint16_t) vertices->size();
+    vertices->push_back({{0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}});
+    vertices->push_back({{0.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}});
+    vertices->push_back({{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}});
+    vertices->push_back({{1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}});
+    indicies->push_back(index);
+    indicies->push_back(index + 1);
+    indicies->push_back(index + 2);
+    indicies->push_back(index + 2);
+    indicies->push_back(index + 1);
+    indicies->push_back(index + 3);
+}
+
 void copy_vertex_cpu_staging_buffer_to_gpu(
     VulkanDevice *device,
     VulkanImage *image,
-    VkCommandPool command_pool
+    VkCommandPool command_pool,
+    vector<Vertex> *vertices
 ) {
-    // Top face of a cube
-    const vector<Vertex> vertices = {
-        {{0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-        {{1.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
-        {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
-        {{0.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{0.0f, 0.0f, 0.75f}, {1.0f, 0.0f, 0.0f}},
-        {{1.0f, 0.0f, 0.75f}, {0.0f, 1.0f, 0.0f}},
-        {{1.0f, 1.0f, 0.75f}, {0.0f, 0.0f, 1.0f}},
-        {{0.0f, 1.0f, 0.75f}, {1.0f, 1.0f, 1.0f}},
-    };
-
     // Copy into staging buffer
     void* data;
-    vkMapMemory(device->get_device(), image->get_vertex_staging_buffer_device_memory(), 0, sizeof(Vertex) * 8, 0, &data);
-    memcpy(data, vertices.data(), (size_t) sizeof(Vertex) * 8);
+    vkMapMemory(device->get_device(), image->get_vertex_staging_buffer_device_memory(), 0, sizeof(Vertex) * vertices->size(), 0, &data);
+    memcpy(data, vertices->data(), (size_t) sizeof(Vertex) * vertices->size());
     vkUnmapMemory(device->get_device(), image->get_vertex_staging_buffer_device_memory());
 
     // Transfer from staging buffer to gpu buffer
@@ -161,7 +252,7 @@ void copy_vertex_cpu_staging_buffer_to_gpu(
     VkBufferCopy copyRegion {};
     copyRegion.srcOffset = 0; // Optional
     copyRegion.dstOffset = 0; // Optional
-    copyRegion.size = (size_t) sizeof(Vertex) * 8;
+    copyRegion.size = (size_t) sizeof(Vertex) * vertices->size();
     vkCmdCopyBuffer(commandBuffer, image->get_vertex_staging_buffer(), image->get_vertex_buffer(), 1, &copyRegion);
     vkEndCommandBuffer(commandBuffer);
 
@@ -181,17 +272,13 @@ void copy_vertex_cpu_staging_buffer_to_gpu(
 void copy_index_cpu_staging_buffer_to_gpu(
     VulkanDevice *device,
     VulkanImage *image,
-    VkCommandPool command_pool
+    VkCommandPool command_pool,
+    vector<uint16_t> *indices
 ) {
-    const vector<uint16_t> indices = {
-        0, 1, 2, 2, 3, 0,
-        4, 5, 6, 6, 7, 4
-    };
-
     // Copy into staging buffer
     void* data;
-    vkMapMemory(device->get_device(), image->get_index_staging_buffer_device_memory(), 0, sizeof(uint16_t) * 36, 0, &data);
-    memcpy(data, indices.data(), (size_t) sizeof(uint16_t) * 36);
+    vkMapMemory(device->get_device(), image->get_index_staging_buffer_device_memory(), 0, sizeof(uint16_t) * indices->size(), 0, &data);
+    memcpy(data, indices->data(), (size_t) sizeof(uint16_t) * indices->size());
     vkUnmapMemory(device->get_device(), image->get_index_staging_buffer_device_memory());
 
     // Transfer from staging buffer to gpu buffer
@@ -213,7 +300,7 @@ void copy_index_cpu_staging_buffer_to_gpu(
     VkBufferCopy copyRegion{};
     copyRegion.srcOffset = 0; // Optional
     copyRegion.dstOffset = 0; // Optional
-    copyRegion.size = (size_t) sizeof(uint16_t) * 36;
+    copyRegion.size = (size_t) sizeof(uint16_t) * indices->size();
     vkCmdCopyBuffer(commandBuffer, image->get_index_staging_buffer(), image->get_index_buffer(), 1, &copyRegion);
     vkEndCommandBuffer(commandBuffer);
 
@@ -240,8 +327,18 @@ FrameResult VulkanFrame::set_camera(
 }
 
 FrameResult VulkanFrame::draw() {
-    copy_vertex_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool);
-    copy_index_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool);
+    vector<uint16_t> indices;
+    vector<Vertex> vertices;
+
+    push_top_face(&vertices, &indices);
+    push_bottom_face(&vertices, &indices);
+    push_right_face(&vertices, &indices);
+    push_left_face(&vertices, &indices);
+    push_front_face(&vertices, &indices);
+    push_back_face(&vertices, &indices);
+
+    copy_vertex_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, &vertices);
+    copy_index_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, &indices);
 
     // Draw what is in the gpu buffer
     VkBuffer vertexBuffers[] = { this->image->get_vertex_buffer() };
@@ -259,7 +356,7 @@ FrameResult VulkanFrame::draw() {
         0,
         nullptr
     );
-    vkCmdDrawIndexed(this->command_buffer, 12, 1, 0, 0, 0);
+    vkCmdDrawIndexed(this->command_buffer, (uint32_t) indices.size(), 1, 0, 0, 0);
     return FRAME_SUCCESS;
 }
 
