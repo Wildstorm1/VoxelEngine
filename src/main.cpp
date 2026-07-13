@@ -21,9 +21,9 @@ float y = 300;
 float yaw = 0;
 float pitch = 0;
 
-glm::vec3 cameraPos = glm::vec3(2.0f, 2.0f, 2.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 cameraUp = glm::vec3(0.0f, 0.0f, 1.0f);
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
 constexpr uint32_t windowStartWidth = 800;
 constexpr uint32_t windowStartHeight = 600;
@@ -87,6 +87,18 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         }
     }
 
+    if (event->type == SDL_EVENT_KEY_DOWN) {
+        if (event->key.key == SDLK_W) {
+            cameraPos += 0.05f * cameraFront;
+        } else if (event->key.key == SDLK_S) {
+            cameraPos -= 0.05f * cameraFront;
+        } else if (event->key.key == SDLK_A) {
+            cameraPos -= 0.05f * glm::normalize(glm::cross(cameraFront, cameraUp));
+        } else if (event->key.key == SDLK_D) {
+            cameraPos += 0.05f * glm::normalize(glm::cross(cameraFront, cameraUp));
+        }
+    }
+
     return SDL_APP_CONTINUE;
 }
 
@@ -99,13 +111,13 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     float mx, my;
     SDL_GetMouseState(&mx, &my);
 
-    const float sensitivity = 0.1f;
+    const float sensitivity = 0.01f;
     float dx, dy;
     dx = (mx - x) * sensitivity;
     dy = (my - y) * sensitivity;
 
     yaw = yaw + dx;
-    pitch = pitch + dy;
+    pitch = pitch - dy;
 
     if (pitch > glm::half_pi<float>() - 0.017) {
         pitch = glm::half_pi<float>() - 0.017;
@@ -116,9 +128,9 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     }
 
     glm::vec3 direction;
-    direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    direction.y = sin(glm::radians(pitch));
-    direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    direction.x = cos(yaw) * cos(pitch);
+    direction.y = sin(pitch);
+    direction.z = sin(yaw) * cos(pitch);
     cameraFront = glm::normalize(direction);
 
     SDL_WarpMouseInWindow(window, windowStartWidth / 2, windowStartHeight / 2);
@@ -126,8 +138,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     WindowSize size = graphics->get_window_size();
 
     camera.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    camera.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    //camera.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+    //camera.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    camera.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
     camera.proj = glm::perspective(glm::radians(45.0f), size.width / (float) size.height, 0.1f, 10.0f);
     camera.proj[1][1] *= -1;
 
