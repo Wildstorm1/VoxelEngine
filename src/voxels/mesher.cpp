@@ -117,52 +117,82 @@ Mesh* Mesher::mesh_chunk_on_cpu(Chunk *chunk, Chunk *neighbors[]) {
                 if (chunk->get_voxel_id(x, y, z) != 0) {
                     vec3 v0 = {x, y, z};
 
+                    // Right face: +z
                     if (z < chunk_size - 1) {
                         if (chunk->get_voxel_id(x, y, z + 1) == 0) {
                             push_right_face(v0, &vertices, &indices);
                         }
                     } else {
-                        push_right_face(v0, &vertices, &indices);
+                        Chunk *neighbor = neighbors[3]; // right chunk
+
+                        if (neighbor->get_voxel_id(x, y, 0) == 0) {
+                            push_right_face(v0, &vertices, &indices);
+                        }
                     }
-                    
+
+                    // Left face: -z
                     if (z > 0) {
                         if (chunk->get_voxel_id(x, y, z - 1) == 0) {
                             push_left_face(v0, &vertices, &indices);
                         }
                     } else {
-                        push_left_face(v0, &vertices, &indices);
+                        Chunk *neighbor = neighbors[2]; // left chunk
+
+                        if (neighbor->get_voxel_id(x, y, chunk_size - 1) == 0) {
+                            push_left_face(v0, &vertices, &indices);
+                        }
                     }
 
+                    // Front face: +x
                     if (x < chunk_size - 1) {
                         if (chunk->get_voxel_id(x + 1, y, z) == 0) {
                             push_front_face(v0, &vertices, &indices);
                         }
                     } else {
-                        push_front_face(v0, &vertices, &indices);
+                        Chunk *neighbor = neighbors[0]; // front chunk
+
+                        if (neighbor->get_voxel_id(0, y, z) == 0) {
+                            push_front_face(v0, &vertices, &indices);
+                        }
                     }
 
+                    // Back face: -x
                     if (x > 0) {
                         if (chunk->get_voxel_id(x - 1, y, z) == 0) {
                             push_back_face(v0, &vertices, &indices);
                         }
                     } else {
-                        push_back_face(v0, &vertices, &indices);
+                        Chunk *neighbor = neighbors[1]; // back chunk
+
+                        if (neighbor->get_voxel_id(chunk_size - 1, y, z) == 0) {
+                            push_back_face(v0, &vertices, &indices);
+                        }
                     }
 
+                    // Top face: +y
                     if (y < chunk_size - 1) {
                         if (chunk->get_voxel_id(x, y + 1, z) == 0) {
                             push_top_face(v0, &vertices, &indices);
                         }
                     } else {
-                        push_top_face(v0, &vertices, &indices);
+                        Chunk *neighbor = neighbors[4]; // top chunk
+
+                        if (neighbor->get_voxel_id(x, 0, z) == 0) {
+                            push_top_face(v0, &vertices, &indices);
+                        }
                     }
 
+                    // Bottom face: -y
                     if (y > 0) {
                         if (chunk->get_voxel_id(x, y - 1, z) == 0) {
                             push_bottom_face(v0, &vertices, &indices);
                         }
                     } else {
-                        push_bottom_face(v0, &vertices, &indices);
+                        Chunk *neighbor = neighbors[5]; // bottom chunk
+
+                        if (neighbor->get_voxel_id(x, chunk_size - 1, z) == 0) {
+                            push_bottom_face(v0, &vertices, &indices);
+                        }
                     }
                 }
             }

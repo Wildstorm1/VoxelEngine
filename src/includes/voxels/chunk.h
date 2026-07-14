@@ -15,13 +15,14 @@ class Chunk {
 
     public:
         /*
-         * Creates a 16x16x16 chunk
+         * Creates a CHUNK_SIZE_16 chunk
          */
         Chunk();
 
         /*
-         * Create a new chunk of the given size, must be
-         * one of the defined sizes
+         * Create a new chunk of the given size
+         * 
+         * Must be one of the defined sizes
          */
         Chunk(size_t chunk_size);
 
@@ -32,13 +33,22 @@ class Chunk {
 
         /*
          * Return the id of the voxel at x,y,z
+         *
+         * @param x the x coordinate in chunk space
+         * @param y the y coordinate in chunk space
+         * @param z the z coordinate in chunk space
          */
-        uint16_t get_voxel_id(uint16_t x, uint16_t y, uint16_t z);
+        uint16_t get_voxel_id(size_t x, size_t y, size_t z);
 
         /*
          * Set the id of the voxel at x,y,z
+         *
+         * @param x the x coordinate in chunk space
+         * @param y the y coordinate in chunk space
+         * @param z the z coordinate in chunk space
+         * @param id the id of the voxel to put into the chunk
          */
-        void set_voxel_id(uint16_t x, uint16_t y, uint16_t z, uint16_t id);
+        void set_voxel_id(size_t x, size_t y, size_t z, uint16_t id);
 
         ~Chunk();
 };

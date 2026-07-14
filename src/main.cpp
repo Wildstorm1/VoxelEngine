@@ -37,7 +37,11 @@ float delta_time = 0;
 void *graphics_memory = nullptr;
 Graphics *graphics = nullptr;
 SDL_Window* window = nullptr;
-Chunk* chunk = nullptr;
+Chunk* chunks[] = {
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr
+};
 Mesh* mesh = nullptr;
 
 auto simplex = FastNoise::New<FastNoise::Simplex>();
@@ -80,26 +84,48 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     fractal->SetSource(simplex);
     fractal->SetOctaveCount(5);
 
-    std::vector<float> noise(64 * 64 * 64);
-    fractal->GenUniformGrid3D(noise.data(), 0, 0, 0, 64, 64, 64, 3, 3, 3, 1337);
+    int samples = 128;
+    std::vector<float> noise(samples * samples * samples);
+    fractal->GenUniformGrid3D(noise.data(), 0, 0, 0, samples, samples, samples, 3, 3, 3, 1337);
 
-    chunk = new Chunk(CHUNK_SIZE_32);
+    uint16_t chunk_size = CHUNK_SIZE_16;
+    uint16_t grid_size = 3;
 
-    for (uint16_t x = 0; x < 32; x++) {
-        for (uint16_t y = 0; y < 32; y++) {
-            for (uint16_t z = 0; z < 32; z++) {
-                if (noise[(z * 64 + y) * 64 + x] > 0) {
-                    chunk->set_voxel_id(x, y, z, 1);
-                } else {
-                    chunk->set_voxel_id(x, y, z, 0);
-                }
+    for (uint16_t cx = 0; cx < grid_size; cx++) {
+        for (uint16_t cy = 0; cy < grid_size; cy++) {
+            for (uint16_t cz = 0; cz < grid_size; cz++) {
+                chunks[cx + grid_size*cy + grid_size*grid_size*cz] = new Chunk(chunk_size);
+                Chunk *chunk = chunks[cx + grid_size*cy + grid_size*grid_size*cz];
+
+                for (uint16_t x = 0; x < chunk_size; x++) {
+                    for (uint16_t y = 0; y < chunk_size; y++) {
+                        for (uint16_t z = 0; z < chunk_size; z++) {
+                            uint16_t cox = cx * chunk_size + x;
+                            uint16_t coy = cy * chunk_size + y;
+                            uint16_t coz = cz * chunk_size + z;
+
+                            if (noise[(coz * samples + coy) * samples + cox] > 0) {
+                                chunk->set_voxel_id(x, y, z, 1);
+                            } else {
+                                chunk->set_voxel_id(x, y, z, 0);
+                            }
+                        }
+                    }
+                }                
             }
         }
     }
 
-    Chunk* neighbors[] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+    Chunk* neighbors[] = {
+        chunks[2 + 3*1 + 3*3*1], // 1,0,0 front
+        chunks[0 + 3*1 + 3*3*1], // -1,0,0 back
+        chunks[1 + 3*1 + 3*3*0], // 0,0,-1 left
+        chunks[1 + 3*1 + 3*3*2], // 0,0,1 right
+        chunks[1 + 3*2 + 3*3*1], // 0,1,0 top
+        chunks[1 + 3*0 + 3*3*1] // 0,-1,0 bottom
+    };
     Mesher mesher = Mesher();
-    mesh = mesher.mesh_chunk_on_cpu(chunk, neighbors);
+    mesh = mesher.mesh_chunk_on_cpu(chunks[1 + 3*1 + 3*3*1], neighbors);
 
     start_time = chrono::high_resolution_clock::now();
 

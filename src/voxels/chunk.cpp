@@ -21,16 +21,16 @@ size_t Chunk::get_chunk_size() {
     return this->chunk_size;
 }
 
-size_t get_index(size_t chunk_size, uint16_t x, uint16_t y, uint16_t z) {
+size_t get_index(size_t chunk_size, size_t x, size_t y, size_t z) {
     return chunk_size * chunk_size * x + chunk_size * y + z;
 }
 
-uint16_t Chunk::get_voxel_id(uint16_t x, uint16_t y, uint16_t z) {
+uint16_t Chunk::get_voxel_id(size_t x, size_t y, size_t z) {
     size_t index = get_index(this->chunk_size, x, y, z);
     return this->buffer[index];
 }
 
-void Chunk::set_voxel_id(uint16_t x, uint16_t y, uint16_t z, uint16_t id) {
+void Chunk::set_voxel_id(size_t x, size_t y, size_t z, uint16_t id) {
     size_t index = get_index(this->chunk_size, x, y, z);
     this->buffer[index] = id;
 }
