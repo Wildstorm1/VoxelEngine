@@ -1,7 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include "../voxels/chunk.h";
+#include "../voxels/mesh.h"
 
 typedef int FrameResult;
 
@@ -16,11 +16,6 @@ struct UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 proj;
-};
-
-struct Vertex {
-    vec3 pos;
-    vec3 color;
 };
 
 /*
@@ -49,7 +44,7 @@ class Frame {
         /*
          * Draw geometry to the frame
          */
-        virtual FrameResult draw_chunk(Chunk *chunk) = 0;
+        virtual FrameResult draw_mesh(Mesh *mesh) = 0;
 
         /*
          * Finish drawing the frame

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
-#include "../voxels/chunk.h"
+#include "../voxels/mesh.h"
 #include "./vulkan_image_private.h"
 #include "./vulkan_device_private.h"
 #include "./frame.h"
@@ -41,7 +41,7 @@ class VulkanFrame : public Frame {
 
         FrameResult set_camera(UniformBufferObject camera);
 
-        FrameResult draw_chunk(Chunk *chunk);
+        FrameResult draw_mesh(Mesh *mesh);
 
         FrameResult end_frame();
 

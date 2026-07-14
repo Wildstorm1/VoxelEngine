@@ -7,6 +7,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
+#include "../includes/voxels/mesh.h"
 #include "../includes/graphics/graphics.h"
 #include "../includes/graphics/frame.h"
 #include "../includes/graphics/vulkan_frame.h"
@@ -107,8 +108,8 @@ void Graphics::set_camera(UniformBufferObject camera) {
 /*
  * Draws objects during a render pass
  */
-void Graphics::draw_chunk(Chunk *chunk) {
-    this->frame_buffer[this->frame_index]->draw_chunk(chunk);
+void Graphics::draw_mesh(Mesh *mesh) {
+    this->frame_buffer[this->frame_index]->draw_mesh(mesh);
 }
 
 /*

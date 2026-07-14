@@ -1,6 +1,8 @@
 #include <iostream>
 #include <array>
 #include <vulkan/vulkan.h>
+#include "../includes/voxels/mesh.h"
+#include "../includes/voxels/mesher.h"
 #include "../includes/graphics/memory.h"
 #include "../includes/graphics/frame.h"
 #include "../includes/graphics/vulkan_frame.h"
@@ -120,106 +122,6 @@ FrameResult VulkanFrame::begin_frame() {
     return FRAME_SUCCESS;
 }
 
-void push_face(
-    vec3 voxel_offset,
-    vec3 vertex_0,
-    vec3 vertex_1,
-    vec3 vertex_2,
-    vec3 vertex_3,
-    vector<Vertex> *vertices,
-    vector<uint32_t> *indicies
-) {
-    uint32_t index = (uint32_t) vertices->size();
-    vertices->push_back({vertex_0, {1.0f, 0.0f, 0.0f}});
-    vertices->push_back({vertex_1, {0.0f, 1.0f, 0.0f}});
-    vertices->push_back({vertex_2, {0.0f, 0.0f, 1.0f}});
-    vertices->push_back({vertex_3, {1.0f, 1.0f, 1.0f}});
-    indicies->push_back(index);
-    indicies->push_back(index + 1);
-    indicies->push_back(index + 2);
-    indicies->push_back(index + 2);
-    indicies->push_back(index + 1);
-    indicies->push_back(index + 3);
-}
-
-void push_top_face(
-    vec3 voxel_offset,
-    vector<Vertex> *vertices,
-    vector<uint32_t> *indicies
-) {
-    uint32_t index = (uint32_t) vertices->size();
-    vec3 v0 = voxel_offset + vec3(0.0f, 0.0f, 1.0f);
-    vec3 v1 = voxel_offset + vec3(1.0f, 0.0f, 1.0f);
-    vec3 v2 = voxel_offset + vec3(0.0f, 1.0f, 1.0f);
-    vec3 v3 = voxel_offset + vec3(1.0f, 1.0f, 1.0f);
-    push_face(voxel_offset, v0, v1, v2, v3, vertices, indicies);
-}
-
-void push_right_face(
-    vec3 voxel_offset,
-    vector<Vertex> *vertices,
-    vector<uint32_t> *indicies
-) {
-    uint32_t index = (uint32_t) vertices->size();
-    vec3 v0 = voxel_offset + vec3(1.0f, 0.0f, 0.0f);
-    vec3 v1 = voxel_offset + vec3(1.0f, 1.0f, 0.0f);
-    vec3 v2 = voxel_offset + vec3(1.0f, 0.0f, 1.0f);
-    vec3 v3 = voxel_offset + vec3(1.0f, 1.0f, 1.0f);
-    push_face(voxel_offset, v0, v1, v2, v3, vertices, indicies);
-}
-
-void push_front_face(
-    vec3 voxel_offset,
-    vector<Vertex> *vertices,
-    vector<uint32_t> *indicies
-) {
-    uint32_t index = (uint32_t) vertices->size();
-    vec3 v0 = voxel_offset + vec3(0.0f, 0.0f, 0.0f);
-    vec3 v1 = voxel_offset + vec3(1.0f, 0.0f, 0.0f);
-    vec3 v2 = voxel_offset + vec3(0.0f, 0.0f, 1.0f);
-    vec3 v3 = voxel_offset + vec3(1.0f, 0.0f, 1.0f);
-    push_face(voxel_offset, v0, v1, v2, v3, vertices, indicies);
-}
-
-void push_bottom_face(
-    vec3 voxel_offset,
-    vector<Vertex> *vertices,
-    vector<uint32_t> *indicies
-) {
-    uint32_t index = (uint32_t) vertices->size();
-    vec3 v0 = voxel_offset + vec3(0.0f, 0.0f, 0.0f);
-    vec3 v1 = voxel_offset + vec3(0.0f, 1.0f, 0.0f);
-    vec3 v2 = voxel_offset + vec3(1.0f, 0.0f, 0.0f);
-    vec3 v3 = voxel_offset + vec3(1.0f, 1.0f, 0.0f);
-    push_face(voxel_offset, v0, v1, v2, v3, vertices, indicies);
-}
-
-void push_left_face(
-    vec3 voxel_offset,
-    vector<Vertex> *vertices,
-    vector<uint32_t> *indicies
-) {
-    uint32_t index = (uint32_t) vertices->size();
-    vec3 v0 = voxel_offset + vec3(0.0f, 0.0f, 0.0f);
-    vec3 v1 = voxel_offset + vec3(0.0f, 0.0f, 1.0f);
-    vec3 v2 = voxel_offset + vec3(0.0f, 1.0f, 0.0f);
-    vec3 v3 = voxel_offset + vec3(0.0f, 1.0f, 1.0f);
-    push_face(voxel_offset, v0, v1, v2, v3, vertices, indicies);
-}
-
-void push_back_face(
-    vec3 voxel_offset,
-    vector<Vertex> *vertices,
-    vector<uint32_t> *indicies
-) {
-    uint32_t index = (uint32_t) vertices->size();
-    vec3 v0 = voxel_offset + vec3(0.0f, 1.0f, 0.0f);
-    vec3 v1 = voxel_offset + vec3(0.0f, 1.0f, 1.0f);
-    vec3 v2 = voxel_offset + vec3(1.0f, 1.0f, 0.0f);
-    vec3 v3 = voxel_offset + vec3(1.0f, 1.0f, 1.0f);
-    push_face(voxel_offset, v0, v1, v2, v3, vertices, indicies);
-}
-
 void copy_vertex_cpu_staging_buffer_to_gpu(
     VulkanDevice *device,
     VulkanImage *image,
@@ -325,29 +227,9 @@ FrameResult VulkanFrame::set_camera(
     return FRAME_SUCCESS;
 }
 
-FrameResult VulkanFrame::draw_chunk(Chunk *chunk) {
-    vector<uint32_t> indices;
-    vector<Vertex> vertices;
-
-    for (size_t x = 0; x < chunk->get_chunk_size(); x++) {
-        for (size_t y = 0; y < chunk->get_chunk_size(); y++) {
-            for (size_t z = 0; z < chunk->get_chunk_size(); z++) {
-                if (chunk->get_voxel_id(x, y, z) != 0) {
-                    vec3 v0 = {x, y, z};
-
-                    push_top_face(v0, &vertices, &indices);
-                    push_bottom_face(v0, &vertices, &indices);
-                    push_right_face(v0, &vertices, &indices);
-                    push_left_face(v0, &vertices, &indices);
-                    push_front_face(v0, &vertices, &indices);
-                    push_back_face(v0, &vertices, &indices);
-                }
-            }
-        }
-    }
-
-    copy_vertex_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, &vertices);
-    copy_index_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, &indices);
+FrameResult VulkanFrame::draw_mesh(Mesh *mesh) {
+    copy_vertex_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, mesh->get_vertex_vector());
+    copy_index_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, mesh->get_index_vector());
 
     // Draw what is in the gpu buffer
     VkBuffer vertexBuffers[] = { this->image->get_vertex_buffer() };
@@ -365,7 +247,7 @@ FrameResult VulkanFrame::draw_chunk(Chunk *chunk) {
         0,
         nullptr
     );
-    vkCmdDrawIndexed(this->command_buffer, (uint32_t) indices.size(), 1, 0, 0, 0);
+    vkCmdDrawIndexed(this->command_buffer, (uint32_t) mesh->get_index_vector()->size(), 1, 0, 0, 0);
     return FRAME_SUCCESS;
 }
 

@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
+#include "../includes/voxels/mesh.h"
 #include "../includes/graphics/memory.h"
 #include "../includes/graphics/frame.h"
 #include "../includes/graphics/vulkan_image_private.h"

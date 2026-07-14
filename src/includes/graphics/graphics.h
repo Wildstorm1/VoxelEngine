@@ -10,7 +10,7 @@
 #include "./vulkan_instance_private.h"
 #include "./vulkan_image_private.h"
 #include "./vulkan_device_private.h"
-#include "../voxels/chunk.h";
+#include "../voxels/mesh.h"
 
 using namespace std;
 
@@ -37,7 +37,7 @@ class Graphics {
         int resize_window();
         void begin_render_pass();
         void set_camera(UniformBufferObject camera);
-        void draw_chunk(Chunk *chunk);
+        void draw_mesh(Mesh *mesh);
         void end_render_pass();
         WindowSize get_window_size();
         SDL_Window *release();
