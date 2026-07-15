@@ -15,6 +15,7 @@
 #include "./includes/voxels/mesh.h"
 #include "./includes/voxels/chunk.h"
 #include "./includes/voxels/mesher.h"
+#include "./includes/voxels/chunk_cache.h"
 
 using namespace std;
 
@@ -36,13 +37,9 @@ chrono::steady_clock::time_point start_time;
 float delta_time = 0;
 void *graphics_memory = nullptr;
 Graphics *graphics = nullptr;
-SDL_Window* window = nullptr;
-Chunk* chunks[] = {
-    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-    nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr
-};
-Mesh* mesh = nullptr;
+SDL_Window *window = nullptr;
+ChunkCache *chunk_cache = nullptr;
+Mesh *mesh = nullptr;
 
 auto simplex = FastNoise::New<FastNoise::Simplex>();
 auto fractal = FastNoise::New<FastNoise::FractalFBm>();
@@ -81,21 +78,25 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         return SDL_Fail();
     }
 
+    uint16_t chunk_size = CHUNK_SIZE_16;
+    uint16_t horizontal_grid_size = 10;
+    uint16_t depth_size = 5;
+    uint16_t x_samples = horizontal_grid_size * chunk_size;
+    uint16_t y_samples = depth_size * chunk_size;
+    uint16_t z_samples = horizontal_grid_size * chunk_size;
+
+    chunk_cache = new ChunkCache(horizontal_grid_size, depth_size);
     fractal->SetSource(simplex);
     fractal->SetOctaveCount(5);
 
-    int samples = 128;
-    std::vector<float> noise(samples * samples * samples);
-    fractal->GenUniformGrid3D(noise.data(), 0, 0, 0, samples, samples, samples, 3, 3, 3, 1337);
+    std::vector<float> noise(x_samples * y_samples * z_samples);
+    fractal->GenUniformGrid3D(noise.data(), 0, 0, 0, x_samples, y_samples, z_samples, 3, 3, 3, 1337);
 
-    uint16_t chunk_size = CHUNK_SIZE_16;
-    uint16_t grid_size = 3;
-
-    for (uint16_t cx = 0; cx < grid_size; cx++) {
-        for (uint16_t cy = 0; cy < grid_size; cy++) {
-            for (uint16_t cz = 0; cz < grid_size; cz++) {
-                chunks[cx + grid_size*cy + grid_size*grid_size*cz] = new Chunk(chunk_size);
-                Chunk *chunk = chunks[cx + grid_size*cy + grid_size*grid_size*cz];
+    for (uint16_t cx = 0; cx < horizontal_grid_size; cx++) {
+        for (uint16_t cy = 0; cy < depth_size; cy++) {
+            for (uint16_t cz = 0; cz < horizontal_grid_size; cz++) {
+                Chunk *chunk = new Chunk(chunk_size);
+                chunk_cache->cache_chunk(cx, cy, cz, chunk);
 
                 for (uint16_t x = 0; x < chunk_size; x++) {
                     for (uint16_t y = 0; y < chunk_size; y++) {
@@ -104,7 +105,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
                             uint16_t coy = cy * chunk_size + y;
                             uint16_t coz = cz * chunk_size + z;
 
-                            if (noise[(coz * samples + coy) * samples + cox] > 0) {
+                            if (noise[(coz * y_samples + coy) * x_samples + cox] > 0) {
                                 chunk->set_voxel_id(x, y, z, 1);
                             } else {
                                 chunk->set_voxel_id(x, y, z, 0);
@@ -116,16 +117,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         }
     }
 
-    Chunk* neighbors[] = {
-        chunks[2 + 3*1 + 3*3*1], // 1,0,0 front
-        chunks[0 + 3*1 + 3*3*1], // -1,0,0 back
-        chunks[1 + 3*1 + 3*3*0], // 0,0,-1 left
-        chunks[1 + 3*1 + 3*3*2], // 0,0,1 right
-        chunks[1 + 3*2 + 3*3*1], // 0,1,0 top
-        chunks[1 + 3*0 + 3*3*1] // 0,-1,0 bottom
-    };
+    Chunk *chunk = chunk_cache->get_chunk(1, 1, 1);
+    Chunk **neighbors = chunk_cache->get_chunk_neighbors(1, 1, 1);
     Mesher mesher = Mesher();
-    mesh = mesher.mesh_chunk_on_cpu(chunks[1 + 3*1 + 3*3*1], neighbors);
+    mesh = mesher.mesh_chunk_on_cpu(chunk, neighbors);
 
     start_time = chrono::high_resolution_clock::now();
 
