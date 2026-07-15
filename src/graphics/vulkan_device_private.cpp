@@ -13,7 +13,8 @@ using namespace std;
 
 const vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    VK_EXT_MESH_SHADER_EXTENSION_NAME
+    VK_EXT_MESH_SHADER_EXTENSION_NAME,
+    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME
 };
 
 VulkanDevice::VulkanDevice() {
@@ -223,6 +224,12 @@ VulkanDeviceResult VulkanDevice::init(SDL_Window *window) {
 
     fill_in_queue_info(this->device_info);
 
+    VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures {};
+    descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    descriptorIndexingFeatures.descriptorBindingUniformBufferUpdateAfterBind = true;
+    descriptorIndexingFeatures.descriptorBindingPartiallyBound = true;
+    descriptorIndexingFeatures.pNext = nullptr;
+
     VkPhysicalDeviceFeatures deviceFeatures {};
 
     VkDeviceCreateInfo createInfo {};
@@ -232,6 +239,7 @@ VulkanDeviceResult VulkanDevice::init(SDL_Window *window) {
     createInfo.pEnabledFeatures = &deviceFeatures;
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+    createInfo.pNext = &descriptorIndexingFeatures;
 
     VkResult device_result = vkCreateDevice(this->device_info->device, &createInfo, nullptr, &this->logical_device);
 
