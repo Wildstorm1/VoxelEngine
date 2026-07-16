@@ -372,9 +372,18 @@ VkResult create_descriptor_set_layout(
     VulkanDevice *device,
     VkDescriptorSetLayout *descriptor_set_layout
 ) {
+    array<VkDescriptorBindingFlags, 1> flags {};
+    flags.at(0) = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlags {};
+    bindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    bindingFlags.pNext = nullptr;
+    bindingFlags.pBindingFlags = flags.data();
+    bindingFlags.bindingCount = 1;
+
     VkDescriptorSetLayoutBinding uboLayoutBinding {};
     uboLayoutBinding.binding = 0;
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     uboLayoutBinding.descriptorCount = 1;
     uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
@@ -382,7 +391,9 @@ VkResult create_descriptor_set_layout(
     VkDescriptorSetLayoutCreateInfo layoutInfo {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = 1;
+    layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
     layoutInfo.pBindings = &uboLayoutBinding;
+    layoutInfo.pNext = &bindingFlags;
 
     return vkCreateDescriptorSetLayout(device->get_device(), &layoutInfo, nullptr, descriptor_set_layout);
 }
@@ -393,13 +404,14 @@ VkResult create_descriptor_pool(
 ) {
     // Allocate 1 per frame, but the size is ambiguous (magic 2's)
     VkDescriptorPoolSize poolSize {};
-    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    poolSize.descriptorCount = 1 * static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = 1;
     poolInfo.pPoolSizes = &poolSize;
+    poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
     poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
     return vkCreateDescriptorPool(device->get_device(), &poolInfo, nullptr, descriptor_pool);
@@ -853,7 +865,7 @@ VulkanImageResult VulkanImage::init(
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         VkResult ubo_buffer_result = create_buffer(
             device,
-            sizeof(UniformBufferObject),
+            1000 * sizeof(UniformBufferObject),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             &this->uniform_frame_buffers[i],
@@ -899,7 +911,7 @@ VulkanImageResult VulkanImage::init(
         descriptorWrite.dstSet = this->descriptor_sets[i];
         descriptorWrite.dstBinding = 0;
         descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
         descriptorWrite.descriptorCount = 1;
         descriptorWrite.pBufferInfo = &bufferInfo;
         descriptorWrite.pImageInfo = nullptr; // Optional

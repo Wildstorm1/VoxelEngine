@@ -1,6 +1,8 @@
 #include <iostream>
 #include <array>
 #include <vulkan/vulkan.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include "../includes/voxels/mesh.h"
 #include "../includes/voxels/mesher.h"
 #include "../includes/graphics/memory.h"
@@ -223,6 +225,13 @@ FrameResult VulkanFrame::set_camera(
 ) {
     //vkMapMemory(device->get_device(), this->uniform_buffer_memory, 0, sizeof(UniformBufferObject), 0, &this->uniform_buffer_cpu_memory);
     memcpy(this->image->get_uniform_frame_buffer_cpu_mapped(this->frame_index), &camera, sizeof(camera));
+
+    UniformBufferObject camera2;
+    camera2.proj = camera.proj;
+    camera2.view = camera.view;
+    camera2.model = glm::translate(glm::mat4(1.0f), glm::vec3(16.0f, 16.0f, 16.0f));
+    UniformBufferObject* buffer = (UniformBufferObject*) this->image->get_uniform_frame_buffer_cpu_mapped(this->frame_index);
+    memcpy((void*)(buffer + 1), &camera2, sizeof(camera2));
     //vkUnmapMemory(device->get_device(), this->uniform_buffer_memory);
     return FRAME_SUCCESS;
 }
@@ -237,6 +246,8 @@ FrameResult VulkanFrame::draw_mesh(Mesh *mesh) {
     vkCmdBindVertexBuffers(this->command_buffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(this->command_buffer, this->image->get_index_buffer(), 0, VK_INDEX_TYPE_UINT32);
 
+    cout << "Size " << sizeof(UniformBufferObject) << endl;
+    uint32_t dynamicOffset = sizeof(UniformBufferObject);
     vkCmdBindDescriptorSets(
         this->command_buffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -244,8 +255,8 @@ FrameResult VulkanFrame::draw_mesh(Mesh *mesh) {
         0,
         1,
         this->image->get_frame_descriptor_set(this->frame_index),
-        0,
-        nullptr
+        1,
+        &dynamicOffset
     );
     vkCmdDrawIndexed(this->command_buffer, (uint32_t) mesh->get_index_vector()->size(), 1, 0, 0, 0);
     return FRAME_SUCCESS;

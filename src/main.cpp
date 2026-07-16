@@ -193,7 +193,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
     WindowSize size = graphics->get_window_size();
 
-    camera.model = glm::mat4(1.0); // Not part of the camera
+    camera.model = glm::mat4(1.0f); // Not part of the camera
     camera.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
     camera.proj = glm::perspective(glm::radians(45.0f), size.width / (float) size.height, 0.1f, 1000.0f);
     camera.proj[1][1] *= -1;
