@@ -14,6 +14,9 @@ using namespace glm;
 
 struct UniformBufferObject {
     mat4 model;
+};
+
+struct Camera {
     mat4 view;
     mat4 proj;
 };
@@ -39,7 +42,7 @@ class Frame {
         /*
          * Draw geometry to the frame using the following camera
          */
-        virtual FrameResult set_camera(UniformBufferObject camera) = 0;
+        virtual FrameResult set_camera(Camera camera) = 0;
 
         /*
          * Draw geometry to the frame

@@ -39,7 +39,7 @@ class VulkanFrame : public Frame {
 
         FrameResult begin_frame();
 
-        FrameResult set_camera(UniformBufferObject camera);
+        FrameResult set_camera(Camera camera);
 
         FrameResult draw_mesh(Mesh *mesh);
 

@@ -22,7 +22,7 @@ using namespace std;
 constexpr uint32_t windowStartWidth = 1600;
 constexpr uint32_t windowStartHeight = 1200;
 
-UniformBufferObject camera;
+Camera camera;
 float x = windowStartWidth / 2;
 float y = windowStartHeight / 2;
 
@@ -193,13 +193,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
     WindowSize size = graphics->get_window_size();
 
-    camera.model = glm::mat4(1.0f); // Not part of the camera
     camera.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
     camera.proj = glm::perspective(glm::radians(45.0f), size.width / (float) size.height, 0.1f, 1000.0f);
     camera.proj[1][1] *= -1;
 
-    graphics->set_camera(camera);
     graphics->begin_render_pass();
+    graphics->set_camera(camera);
     graphics->draw_mesh(mesh);
     cout << "delta time: " << delta_time << endl;
     graphics->end_render_pass();

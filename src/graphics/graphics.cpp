@@ -101,7 +101,7 @@ void Graphics::begin_render_pass() {
 /*
  * Sets the camera for drawing
  */
-void Graphics::set_camera(UniformBufferObject camera) {
+void Graphics::set_camera(Camera camera) {
     this->frame_buffer[this->frame_index]->set_camera(camera);
 }
 

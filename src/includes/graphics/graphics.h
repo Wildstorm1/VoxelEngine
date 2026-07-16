@@ -36,7 +36,7 @@ class Graphics {
         int init(SDL_Window *window);
         int resize_window();
         void begin_render_pass();
-        void set_camera(UniformBufferObject camera);
+        void set_camera(Camera camera);
         void draw_mesh(Mesh *mesh);
         void end_render_pass();
         WindowSize get_window_size();
