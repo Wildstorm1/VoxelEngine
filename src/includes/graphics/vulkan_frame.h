@@ -6,15 +6,13 @@
 #include "./vulkan_device_private.h"
 #include "./frame.h"
 
-typedef int FrameResult;
-
 #define FRAME_INIT_SUCCESS 0
 #define FRAME_INIT_FAILURE 1
 
 using namespace std;
 
 /*
- * Module defines vulkan specific implementation for
+ * Module defines vulkan specific implementation for frame
  */
 class VulkanFrame : public Frame {
     private:
