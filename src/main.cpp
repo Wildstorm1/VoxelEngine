@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <chrono>
+#include <vector>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_init.h>
@@ -33,13 +34,17 @@ glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
+const uint16_t chunk_size = CHUNK_SIZE_16;
+const float chunk_size_float = CHUNK_SIZE_16;
+const uint16_t horizontal_grid_size = 10;
+const uint16_t depth_size = 5;
 chrono::steady_clock::time_point start_time;
 float delta_time = 0;
 void *graphics_memory = nullptr;
 Graphics *graphics = nullptr;
 SDL_Window *window = nullptr;
 ChunkCache *chunk_cache = nullptr;
-Mesh *mesh = nullptr;
+vector<Mesh*> meshes = {};
 
 auto simplex = FastNoise::New<FastNoise::Simplex>();
 auto fractal = FastNoise::New<FastNoise::FractalFBm>();
@@ -78,9 +83,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         return SDL_Fail();
     }
 
-    uint16_t chunk_size = CHUNK_SIZE_16;
-    uint16_t horizontal_grid_size = 10;
-    uint16_t depth_size = 5;
     uint16_t x_samples = horizontal_grid_size * chunk_size;
     uint16_t y_samples = depth_size * chunk_size;
     uint16_t z_samples = horizontal_grid_size * chunk_size;
@@ -117,10 +119,20 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         }
     }
 
-    Chunk *chunk = chunk_cache->get_chunk(1, 1, 1);
-    Chunk **neighbors = chunk_cache->get_chunk_neighbors(1, 1, 1);
     Mesher mesher = Mesher();
-    mesh = mesher.mesh_chunk_on_cpu(chunk, neighbors);
+    meshes.resize((horizontal_grid_size - 1) * (horizontal_grid_size - 1) * (depth_size - 1));
+
+    for (uint16_t cy = 1; cy < depth_size - 1; cy++) {
+        for (uint16_t cz = 1; cz < horizontal_grid_size - 1; cz++) {
+            for (uint16_t cx = 1; cx < horizontal_grid_size - 1; cx++) {
+                Chunk *chunk = chunk_cache->get_chunk(cx, cy, cz);
+                Chunk **neighbors = chunk_cache->get_chunk_neighbors(cx, cy, cz);
+                meshes[
+                    cy * (horizontal_grid_size - 1) * (horizontal_grid_size - 1) + cx * (horizontal_grid_size - 1) + cz
+                ] = mesher.mesh_chunk_on_cpu(chunk, neighbors);
+            }
+        }
+    }
 
     start_time = chrono::high_resolution_clock::now();
 
@@ -198,12 +210,27 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     camera.proj[1][1] *= -1;
 
     graphics->begin_hacky_frame();
-    graphics->queue_mesh_to_gpu(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)), *mesh);
+
+    for (uint16_t cy = 1; cy < depth_size - 1; cy++) {
+        for (uint16_t cz = 1; cz < horizontal_grid_size - 1; cz++) {
+            for (uint16_t cx = 1; cx < horizontal_grid_size - 1; cx++) {
+                Mesh* mesh = meshes[
+                    cy * (horizontal_grid_size - 1) * (horizontal_grid_size - 1) + cx * (horizontal_grid_size - 1) + cz
+                ];
+                graphics->queue_mesh_to_gpu(glm::translate(glm::mat4(1.0f), chunk_size_float * glm::vec3(cx - 1, cy - 1, cz - 1)), *mesh);
+            }
+        }
+    }
+
     graphics->push_models_to_gpu();
 
     graphics->begin_render_pass();
     graphics->set_camera(camera);
-    graphics->draw_mesh(0);
+
+    for (size_t i = 0; i < 10; i++) {
+        graphics->draw_mesh(i);
+    }
+
     cout << "delta time: " << delta_time << endl;
     graphics->end_render_pass();
 
