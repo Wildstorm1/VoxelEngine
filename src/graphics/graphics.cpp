@@ -19,7 +19,6 @@ using namespace std;
 Graphics::Graphics() {
     this->window = NULL;
     this->instance = {};
-    this->image = {};
     this->device = {};
     this->frame_index = 0;
 }
@@ -38,8 +37,15 @@ int Graphics::init(
         return EXIT_FAILURE;
     }
 
-    this->image = VulkanImage::VulkanImage();
-    VulkanImageResult image_result = this->image.init(this->window, &this->device);
+    this->heap = new VulkanArrayMeshHeap(&this->device);
+    this->heap->init();
+
+    if (device_result != HEAP_SUCCESS) {
+        return EXIT_FAILURE;
+    }
+
+    this->image = new VulkanImage(this->heap);
+    VulkanImageResult image_result = this->image->init(this->window, &this->device);
 
     if (image_result != VULKAN_IMAGE_INIT_SUCCESS) {
         return EXIT_FAILURE;
@@ -64,7 +70,7 @@ int Graphics::init(
     this->frame_buffer.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < this->frame_buffer.size(); i++) {
-        Frame *vulkan_frame = new VulkanFrame(&this->device, &this->image, this->command_pool, i);
+        Frame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->command_pool, i, this->heap);
         this->frame_buffer[i] = vulkan_frame;
         this->frame_buffer[i]->init();
     }
@@ -77,15 +83,29 @@ int Graphics::init(
  */
 int Graphics::resize_window() {
     vkDeviceWaitIdle(this->device.get_device());
-    this->image.destroy(&this->device);
+
+    this->image->destroy(&this->device);
+    delete this->image;
+
+    // Free the framebuffers
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        this->frame_buffer[i]->destroy();
+        delete this->frame_buffer[i];
+    }
 
     this->device.query_device_information();
 
-    this->image = VulkanImage::VulkanImage();
-    VulkanImageResult image_result = this->image.init(window, &this->device);
+    this->image = new VulkanImage(this->heap);
+    VulkanImageResult image_result = this->image->init(window, &this->device);
 
     if (image_result != VULKAN_IMAGE_INIT_SUCCESS) {
         return EXIT_FAILURE;
+    }
+
+    for (size_t i = 0; i < this->frame_buffer.size(); i++) {
+        Frame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->command_pool, i, this->heap);
+        this->frame_buffer[i] = vulkan_frame;
+        this->frame_buffer[i]->init();
     }
 
     return EXIT_SUCCESS;
@@ -121,7 +141,7 @@ void Graphics::end_render_pass() {
 }
 
 WindowSize Graphics::get_window_size() {
-    VkExtent2D extent = this->image.get_swapchain_extent();
+    VkExtent2D extent = this->image->get_swapchain_extent();
 
     WindowSize window_size = {};
     window_size.width = extent.width;
@@ -138,6 +158,9 @@ SDL_Window *Graphics::release() {
     if (this->window != nullptr) {
         vkDeviceWaitIdle(this->device.get_device());
 
+        this->heap->destroy();
+        delete this->heap;
+
         // Free the framebuffers
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             this->frame_buffer[i]->destroy();
@@ -146,7 +169,8 @@ SDL_Window *Graphics::release() {
 
         vkDestroyCommandPool(this->device.get_device(), this->command_pool, nullptr);
 
-        this->image.destroy(&this->device);
+        this->image->destroy(&this->device);
+        delete this->image;
         this->device.destroy();
     }
 

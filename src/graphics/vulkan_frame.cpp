@@ -17,12 +17,14 @@ VulkanFrame::VulkanFrame(
     VulkanDevice *device,
     VulkanImage *image,
     VkCommandPool command_pool,
-    size_t frame_index
+    size_t frame_index,
+    VulkanArrayMeshHeap *mesh_heap
 ) {
     this->command_pool = command_pool;
     this->device = device;
     this->image = image;
     this->frame_index = frame_index;
+    this->mesh_heap = mesh_heap;
 }
 
 FrameResult VulkanFrame::init() {
@@ -128,13 +130,14 @@ void copy_vertex_cpu_staging_buffer_to_gpu(
     VulkanDevice *device,
     VulkanImage *image,
     VkCommandPool command_pool,
-    vector<Vertex> *vertices
+    vector<Vertex> *vertices,
+    VulkanArrayMeshHeap *mesh_heap
 ) {
     // Copy into staging buffer
     void* data;
-    vkMapMemory(device->get_device(), image->get_vertex_staging_buffer_device_memory(), 0, sizeof(Vertex) * vertices->size(), 0, &data);
+    vkMapMemory(device->get_device(), mesh_heap->get_vertex_staging_buffer_device_memory(), 0, sizeof(Vertex) * vertices->size(), 0, &data);
     memcpy(data, vertices->data(), (size_t) sizeof(Vertex) * vertices->size());
-    vkUnmapMemory(device->get_device(), image->get_vertex_staging_buffer_device_memory());
+    vkUnmapMemory(device->get_device(), mesh_heap->get_vertex_staging_buffer_device_memory());
 
     // Transfer from staging buffer to gpu buffer
     VkCommandBufferAllocateInfo allocInfo {};
@@ -156,7 +159,7 @@ void copy_vertex_cpu_staging_buffer_to_gpu(
     copyRegion.srcOffset = 0; // Optional
     copyRegion.dstOffset = 0; // Optional
     copyRegion.size = (size_t) sizeof(Vertex) * vertices->size();
-    vkCmdCopyBuffer(commandBuffer, image->get_vertex_staging_buffer(), image->get_vertex_buffer(), 1, &copyRegion);
+    vkCmdCopyBuffer(commandBuffer, mesh_heap->get_vertex_staging_buffer(), mesh_heap->get_vertex_buffer(), 1, &copyRegion);
     vkEndCommandBuffer(commandBuffer);
 
     // Submit the copy for processing
@@ -176,13 +179,14 @@ void copy_index_cpu_staging_buffer_to_gpu(
     VulkanDevice *device,
     VulkanImage *image,
     VkCommandPool command_pool,
-    vector<uint32_t> *indices
+    vector<uint32_t> *indices,
+    VulkanArrayMeshHeap *mesh_heap
 ) {
     // Copy into staging buffer
     void* data;
-    vkMapMemory(device->get_device(), image->get_index_staging_buffer_device_memory(), 0, sizeof(uint32_t) * indices->size(), 0, &data);
+    vkMapMemory(device->get_device(), mesh_heap->get_index_staging_buffer_device_memory(), 0, sizeof(uint32_t) * indices->size(), 0, &data);
     memcpy(data, indices->data(), (size_t) sizeof(uint32_t) * indices->size());
-    vkUnmapMemory(device->get_device(), image->get_index_staging_buffer_device_memory());
+    vkUnmapMemory(device->get_device(), mesh_heap->get_index_staging_buffer_device_memory());
 
     // Transfer from staging buffer to gpu buffer
     VkCommandBufferAllocateInfo allocInfo {};
@@ -204,7 +208,7 @@ void copy_index_cpu_staging_buffer_to_gpu(
     copyRegion.srcOffset = 0; // Optional
     copyRegion.dstOffset = 0; // Optional
     copyRegion.size = (size_t) sizeof(uint32_t) * indices->size();
-    vkCmdCopyBuffer(commandBuffer, image->get_index_staging_buffer(), image->get_index_buffer(), 1, &copyRegion);
+    vkCmdCopyBuffer(commandBuffer, mesh_heap->get_index_staging_buffer(), mesh_heap->get_index_buffer(), 1, &copyRegion);
     vkEndCommandBuffer(commandBuffer);
 
     // Submit the copy for processing
@@ -226,11 +230,11 @@ FrameResult VulkanFrame::set_camera(
     //vkMapMemory(device->get_device(), this->uniform_buffer_memory, 0, sizeof(UniformBufferObject), 0, &this->uniform_buffer_cpu_memory);
     UniformBufferObject model1;
     model1.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-    memcpy(this->image->get_uniform_frame_buffer_cpu_mapped(this->frame_index), &model1, sizeof(model1));
+    memcpy(this->mesh_heap->get_uniform_frame_buffer_cpu_mapped(this->frame_index), &model1, sizeof(model1));
 
     UniformBufferObject model2;
     model2.model = glm::translate(glm::mat4(1.0f), glm::vec3(32.0f, 32.0f, 32.0f));
-    UniformBufferObject* buffer = (UniformBufferObject*) this->image->get_uniform_frame_buffer_cpu_mapped(this->frame_index);
+    UniformBufferObject* buffer = (UniformBufferObject*) this->mesh_heap->get_uniform_frame_buffer_cpu_mapped(this->frame_index);
     memcpy((void*)(buffer + 1), &model2, sizeof(model2));
 
     vkCmdPushConstants(
@@ -246,14 +250,14 @@ FrameResult VulkanFrame::set_camera(
 }
 
 FrameResult VulkanFrame::draw_mesh(Mesh *mesh) {
-    copy_vertex_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, mesh->get_vertex_vector());
-    copy_index_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, mesh->get_index_vector());
+    copy_vertex_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, mesh->get_vertex_vector(), this->mesh_heap);
+    copy_index_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, mesh->get_index_vector(), this->mesh_heap);
 
     // Draw what is in the gpu buffer
-    VkBuffer vertexBuffers[] = { this->image->get_vertex_buffer() };
+    VkBuffer vertexBuffers[] = { this->mesh_heap->get_vertex_buffer() };
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(this->command_buffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(this->command_buffer, this->image->get_index_buffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(this->command_buffer, this->mesh_heap->get_index_buffer(), 0, VK_INDEX_TYPE_UINT32);
 
     uint32_t dynamicOffset = 0; //sizeof(UniformBufferObject);
     vkCmdBindDescriptorSets(
@@ -262,7 +266,7 @@ FrameResult VulkanFrame::draw_mesh(Mesh *mesh) {
         this->image->get_graphics_pipeline_layout(),
         0,
         1,
-        this->image->get_frame_descriptor_set(this->frame_index),
+        this->mesh_heap->get_frame_descriptor_set(this->frame_index),
         1,
         &dynamicOffset
     );

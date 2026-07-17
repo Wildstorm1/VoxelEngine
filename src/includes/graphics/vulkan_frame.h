@@ -4,6 +4,7 @@
 #include "../voxels/mesh.h"
 #include "./vulkan_image_private.h"
 #include "./vulkan_device_private.h"
+#include "./vulkan_mesh_heap.h"
 #include "./frame.h"
 
 typedef int FrameResult;
@@ -20,6 +21,7 @@ class VulkanFrame : public Frame {
     private:
         VulkanDevice *device;
         VulkanImage *image;
+        VulkanArrayMeshHeap *mesh_heap;
         VkCommandPool command_pool;
         VkCommandBuffer command_buffer;
         VkSemaphore image_available_semaphore;
@@ -32,7 +34,8 @@ class VulkanFrame : public Frame {
             VulkanDevice *device,
             VulkanImage *image,
             VkCommandPool command_pool,
-            size_t frame_index
+            size_t frame_index,
+            VulkanArrayMeshHeap *mesh_heap
         );
 
         FrameResult init();

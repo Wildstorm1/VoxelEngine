@@ -23,7 +23,8 @@ class Graphics {
     private:
         VulkanInstance instance;
         VulkanDevice device;
-        VulkanImage image;
+        VulkanImage *image;
+        VulkanArrayMeshHeap *heap;
 
         SDL_Window *window;
         VkCommandPool command_pool;
