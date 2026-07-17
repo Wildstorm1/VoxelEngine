@@ -2,14 +2,14 @@
 
 #include <vulkan/vulkan.h>
 #include "../voxels/mesh.h"
+#include "./structs.h"
 #include "./vulkan_image_private.h"
 #include "./vulkan_device_private.h"
 #include "./vulkan_mesh_heap.h"
-#include "./frame.h"
 
 typedef int FrameResult;
 
-#define FRAME_INIT_SUCCESS 0
+#define FRAME_SUCCESS 0
 #define FRAME_INIT_FAILURE 1
 
 using namespace std;
@@ -17,7 +17,7 @@ using namespace std;
 /*
  * Module defines vulkan specific implementation for
  */
-class VulkanFrame : public Frame {
+class VulkanFrame {
     private:
         VulkanDevice *device;
         VulkanImage *image;
@@ -47,6 +47,8 @@ class VulkanFrame : public Frame {
         FrameResult draw_mesh(Mesh *mesh);
 
         FrameResult end_frame();
+
+        VkCommandBuffer get_command_buffer();
 
         void destroy();
 };

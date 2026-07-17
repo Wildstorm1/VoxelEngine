@@ -8,9 +8,10 @@
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
 #include "../includes/voxels/mesh.h"
-#include "../includes/graphics/graphics.h"
-#include "../includes/graphics/frame.h"
+#include "../includes/graphics/structs.h"
 #include "../includes/graphics/vulkan_frame.h"
+#include "../includes/graphics/vulkan_mesh_heap.h"
+#include "../includes/graphics/graphics.h"
 #include "../includes/graphics/vulkan_instance_private.h"
 #include "../includes/graphics/vulkan_image_private.h"
 
@@ -37,20 +38,6 @@ int Graphics::init(
         return EXIT_FAILURE;
     }
 
-    this->heap = new VulkanArrayMeshHeap(&this->device);
-    this->heap->init();
-
-    if (device_result != HEAP_SUCCESS) {
-        return EXIT_FAILURE;
-    }
-
-    this->image = new VulkanImage(this->heap);
-    VulkanImageResult image_result = this->image->init(this->window, &this->device);
-
-    if (image_result != VULKAN_IMAGE_INIT_SUCCESS) {
-        return EXIT_FAILURE;
-    }
-
     DeviceInfos* device_info = this->device.get_device_info();
 
     VkCommandPoolCreateInfo poolInfo {};
@@ -67,10 +54,24 @@ int Graphics::init(
         cout << "Successfully created a command pool" << endl;
     }
 
+    this->heap = new VulkanArrayMeshHeap(&this->device, this->command_pool);
+    this->heap->init();
+
+    if (device_result != HEAP_SUCCESS) {
+        return EXIT_FAILURE;
+    }
+
+    this->image = new VulkanImage(this->heap);
+    VulkanImageResult image_result = this->image->init(this->window, &this->device);
+
+    if (image_result != VULKAN_IMAGE_INIT_SUCCESS) {
+        return EXIT_FAILURE;
+    }
+
     this->frame_buffer.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < this->frame_buffer.size(); i++) {
-        Frame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->command_pool, i, this->heap);
+        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->command_pool, i, this->heap);
         this->frame_buffer[i] = vulkan_frame;
         this->frame_buffer[i]->init();
     }
@@ -103,12 +104,19 @@ int Graphics::resize_window() {
     }
 
     for (size_t i = 0; i < this->frame_buffer.size(); i++) {
-        Frame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->command_pool, i, this->heap);
+        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->command_pool, i, this->heap);
         this->frame_buffer[i] = vulkan_frame;
         this->frame_buffer[i]->init();
     }
 
     return EXIT_SUCCESS;
+}
+
+void Graphics::begin_hacky_frame() {
+    this->heap->begin_frame(
+        this->frame_index,
+        this->frame_buffer[this->frame_index]->get_command_buffer()
+    );
 }
 
 /*
@@ -125,11 +133,16 @@ void Graphics::set_camera(Camera camera) {
     this->frame_buffer[this->frame_index]->set_camera(camera);
 }
 
-/*
- * Draws objects during a render pass
- */
-void Graphics::draw_mesh(Mesh *mesh) {
-    this->frame_buffer[this->frame_index]->draw_mesh(mesh);
+void Graphics::queue_mesh_to_gpu(mat4 model, Mesh mesh) {
+    this->heap->buffer_model_on_cpu(model, mesh);
+}
+
+void Graphics::push_models_to_gpu() {
+    this->heap->write_models_to_gpu();
+}
+
+void Graphics::draw_mesh(size_t index) {
+    this->heap->draw_mesh(index, this->image->get_graphics_pipeline_layout());
 }
 
 /*

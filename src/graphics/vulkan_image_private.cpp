@@ -8,7 +8,7 @@
 #include <SDL3/SDL_vulkan.h>
 #include "../includes/voxels/mesh.h"
 #include "../includes/graphics/memory.h"
-#include "../includes/graphics/frame.h"
+#include "../includes/graphics/vulkan_frame.h"
 #include "../includes/graphics/vulkan_image_private.h"
 #include "../includes/graphics/vulkan_device_private.h"
 #include "../includes/graphics/vulkan_mesh_heap.h"

@@ -3,6 +3,7 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
+#include "../voxels/mesh.h"
 #include "./vulkan_device_private.h"
 
 typedef int MeshHeapResult;
@@ -24,6 +25,11 @@ struct GpuMapping {
 class VulkanArrayMeshHeap {
     private:
         VulkanDevice *device;
+        VkCommandPool command_pool;
+        VkCommandBuffer command_buffer;
+        size_t frame_index;
+        vector<GpuMapping> model_vertex_metadata;
+        vector<GpuMapping> model_index_metadata;
         vector<VkDeviceMemory> uniform_frame_buffers_memory;
         vector<VkBuffer> uniform_frame_buffers;
         vector<void*> uniform_frame_buffers_cpu_mapped;
@@ -33,21 +39,34 @@ class VulkanArrayMeshHeap {
         VkDeviceMemory vertex_buffer_memory;
         VkBuffer vertex_buffer;
         VkDeviceMemory vertex_staging_buffer_memory;
+        void* vertex_staging_buffer_cpu_mapped;
         VkBuffer vertex_staging_buffer;
         VkDeviceMemory index_buffer_memory;
         VkBuffer index_buffer;
         VkDeviceMemory index_staging_buffer_memory;
         VkBuffer index_staging_buffer;
+        void* index_staging_buffer_cpu_mapped;
 
     public:
         VulkanArrayMeshHeap(
-            VulkanDevice *device
+            VulkanDevice *device,
+            VkCommandPool command_pool
         );
 
         /*
          * Initializes gpu buffers
          */
         MeshHeapResult init();
+
+        MeshHeapResult begin_frame(size_t frame_index, VkCommandBuffer command_buffer);
+
+        MeshHeapResult buffer_model_on_cpu(mat4 model, Mesh mesh);
+
+        MeshHeapResult write_models_to_gpu();
+
+        MeshHeapResult draw_mesh(size_t index, VkPipelineLayout pipeline_layout);
+
+        size_t get_mesh_count();
 
         /*
          * Return a handle to the vertex buffers device memory
