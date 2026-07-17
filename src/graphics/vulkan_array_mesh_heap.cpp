@@ -259,7 +259,7 @@ MeshHeapResult VulkanArrayMeshHeap::write_models_to_gpu() {
     copy_cpu_staging_buffer_to_gpu(
         this->device,
         this->command_pool,
-        (size_t) sizeof(uint16_t) * 4097152,
+        (size_t) sizeof(uint16_t) * 4097152, // Didn't I switch to u32?
         this->index_staging_buffer,
         this->index_buffer
     );
