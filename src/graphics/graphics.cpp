@@ -18,15 +18,13 @@ using namespace std;
 
 Graphics::Graphics() {
     this->window = NULL;
+    this->heap = {};
     this->instance = {};
     this->image = {};
     this->device = {};
     this->frame_index = 0;
 }
 
-/*
- * Takes ownership over window until release
- */
 int Graphics::init(
     SDL_Window *window
 ) {
@@ -64,17 +62,17 @@ int Graphics::init(
     this->frame_buffer.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < this->frame_buffer.size(); i++) {
-        Frame *vulkan_frame = new VulkanFrame(&this->device, &this->image, this->command_pool, i);
+        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, &this->image, this->command_pool, i);
         this->frame_buffer[i] = vulkan_frame;
         this->frame_buffer[i]->init();
     }
 
+    this->heap = new VulkanArrayMeshHeap(&this->device, &this->image, this->command_pool);
+    this->heap->init();
+
     return EXIT_SUCCESS;
 }
 
-/*
- * Sets up graphics pipeline related resources
- */
 int Graphics::resize_window() {
     vkDeviceWaitIdle(this->device.get_device());
     this->image.destroy(&this->device);
@@ -91,30 +89,33 @@ int Graphics::resize_window() {
     return EXIT_SUCCESS;
 }
 
-/*
- * Begins a render pass
- */
+void Graphics::begin_hacky_frame() {
+    this->heap->begin_frame(
+        this->frame_index,
+        this->frame_buffer[this->frame_index]->get_command_buffer()
+    );
+}
+
 void Graphics::begin_render_pass() {
     this->frame_buffer[this->frame_index]->begin_frame();
 }
 
-/*
- * Sets the camera for drawing
- */
 void Graphics::set_camera(Camera camera) {
     this->frame_buffer[this->frame_index]->set_camera(camera);
 }
 
-/*
- * Draws objects during a render pass
- */
-void Graphics::draw_mesh(Mesh *mesh) {
-    this->frame_buffer[this->frame_index]->draw_mesh(mesh);
+void Graphics::queue_mesh_to_gpu(mat4 model, Mesh mesh) {
+    this->heap->buffer_model_on_cpu(model, mesh);
 }
 
-/*
- * Ends a render pass
- */
+void Graphics::push_models_to_gpu() {
+    this->heap->write_models_to_gpu();
+}
+
+void Graphics::draw_mesh(size_t index) {
+    this->heap->draw_mesh(index);
+}
+
 void Graphics::end_render_pass() {
     this->frame_buffer[this->frame_index]->end_frame();
     this->frame_index = (this->frame_index + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -144,6 +145,7 @@ SDL_Window *Graphics::release() {
             delete this->frame_buffer[i];
         }
 
+        this->heap->destroy();
         vkDestroyCommandPool(this->device.get_device(), this->command_pool, nullptr);
 
         this->image.destroy(&this->device);

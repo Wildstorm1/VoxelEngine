@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 #include "../voxels/mesh.h"
+#include "./mesh_heap.h"
 
 typedef int FrameResult;
 
@@ -43,11 +44,6 @@ class Frame {
          * Draw geometry to the frame using the following camera
          */
         virtual FrameResult set_camera(Camera camera) = 0;
-
-        /*
-         * Draw geometry to the frame
-         */
-        virtual FrameResult draw_mesh(Mesh *mesh) = 0;
 
         /*
          * Finish drawing the frame

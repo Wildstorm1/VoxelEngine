@@ -197,9 +197,13 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     camera.proj = glm::perspective(glm::radians(45.0f), size.width / (float) size.height, 0.1f, 1000.0f);
     camera.proj[1][1] *= -1;
 
+    graphics->begin_hacky_frame();
+    graphics->queue_mesh_to_gpu(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)), *mesh);
+    graphics->push_models_to_gpu();
+
     graphics->begin_render_pass();
     graphics->set_camera(camera);
-    graphics->draw_mesh(mesh);
+    graphics->draw_mesh(0);
     cout << "delta time: " << delta_time << endl;
     graphics->end_render_pass();
 

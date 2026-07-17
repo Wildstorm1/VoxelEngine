@@ -10,6 +10,7 @@
 #include "./vulkan_instance_private.h"
 #include "./vulkan_image_private.h"
 #include "./vulkan_device_private.h"
+#include "./vulkan_array_mesh_heap.h"
 #include "../voxels/mesh.h"
 
 using namespace std;
@@ -24,20 +25,59 @@ class Graphics {
         VulkanInstance instance;
         VulkanDevice device;
         VulkanImage image;
+        VulkanArrayMeshHeap *heap;
 
         SDL_Window *window;
         VkCommandPool command_pool;
-        vector<Frame*> frame_buffer;
+        vector<VulkanFrame*> frame_buffer;
         uint32_t frame_index;
 
     public:
         Graphics();
 
+        /*
+         * Takes ownership over window until release
+         */
         int init(SDL_Window *window);
+
+        /*
+         * Sets up graphics pipeline related resources
+         */
         int resize_window();
+
+        /*
+         * Forward an inner command
+         */
+        void begin_hacky_frame();
+
+        /*
+         * Begins a render pass
+         */
         void begin_render_pass();
+
+        /*
+         * Sets the camera for drawing
+         */
         void set_camera(Camera camera);
-        void draw_mesh(Mesh *mesh);
+
+        /*
+         * Loads a mesh onto the gpu
+         */
+        void queue_mesh_to_gpu(mat4 model, Mesh mesh);
+
+        /*
+         * Transfers models from the cpu to gpu memory
+         */
+        void push_models_to_gpu();
+
+        /*
+         * Draws objects during a render pass
+         */
+        void draw_mesh(size_t index);
+
+        /*
+         * Ends a render pass
+         */
         void end_render_pass();
         WindowSize get_window_size();
         SDL_Window *release();

@@ -124,115 +124,9 @@ FrameResult VulkanFrame::begin_frame() {
     return FRAME_SUCCESS;
 }
 
-void copy_vertex_cpu_staging_buffer_to_gpu(
-    VulkanDevice *device,
-    VulkanImage *image,
-    VkCommandPool command_pool,
-    vector<Vertex> *vertices
-) {
-    // Copy into staging buffer
-    void* data;
-    vkMapMemory(device->get_device(), image->get_vertex_staging_buffer_device_memory(), 0, sizeof(Vertex) * vertices->size(), 0, &data);
-    memcpy(data, vertices->data(), (size_t) sizeof(Vertex) * vertices->size());
-    vkUnmapMemory(device->get_device(), image->get_vertex_staging_buffer_device_memory());
-
-    // Transfer from staging buffer to gpu buffer
-    VkCommandBufferAllocateInfo allocInfo {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = command_pool;
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(device->get_device(), &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-    VkBufferCopy copyRegion {};
-    copyRegion.srcOffset = 0; // Optional
-    copyRegion.dstOffset = 0; // Optional
-    copyRegion.size = (size_t) sizeof(Vertex) * vertices->size();
-    vkCmdCopyBuffer(commandBuffer, image->get_vertex_staging_buffer(), image->get_vertex_buffer(), 1, &copyRegion);
-    vkEndCommandBuffer(commandBuffer);
-
-    // Submit the copy for processing
-    VkSubmitInfo submitInfo {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(device->get_graphics_queue(), 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(device->get_graphics_queue());
-
-    // Free the command buffer
-    vkFreeCommandBuffers(device->get_device(), command_pool, 1, &commandBuffer);
-}
-
-void copy_index_cpu_staging_buffer_to_gpu(
-    VulkanDevice *device,
-    VulkanImage *image,
-    VkCommandPool command_pool,
-    vector<uint32_t> *indices
-) {
-    // Copy into staging buffer
-    void* data;
-    vkMapMemory(device->get_device(), image->get_index_staging_buffer_device_memory(), 0, sizeof(uint32_t) * indices->size(), 0, &data);
-    memcpy(data, indices->data(), (size_t) sizeof(uint32_t) * indices->size());
-    vkUnmapMemory(device->get_device(), image->get_index_staging_buffer_device_memory());
-
-    // Transfer from staging buffer to gpu buffer
-    VkCommandBufferAllocateInfo allocInfo {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = command_pool;
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(device->get_device(), &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-    VkBufferCopy copyRegion{};
-    copyRegion.srcOffset = 0; // Optional
-    copyRegion.dstOffset = 0; // Optional
-    copyRegion.size = (size_t) sizeof(uint32_t) * indices->size();
-    vkCmdCopyBuffer(commandBuffer, image->get_index_staging_buffer(), image->get_index_buffer(), 1, &copyRegion);
-    vkEndCommandBuffer(commandBuffer);
-
-    // Submit the copy for processing
-    VkSubmitInfo submitInfo {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(device->get_graphics_queue(), 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(device->get_graphics_queue());
-
-    // Free the command buffer
-    vkFreeCommandBuffers(device->get_device(), command_pool, 1, &commandBuffer);
-}
-
 FrameResult VulkanFrame::set_camera(
     Camera camera
 ) {
-    //vkMapMemory(device->get_device(), this->uniform_buffer_memory, 0, sizeof(UniformBufferObject), 0, &this->uniform_buffer_cpu_memory);
-    UniformBufferObject model1;
-    model1.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-    memcpy(this->image->get_uniform_frame_buffer_cpu_mapped(this->frame_index), &model1, sizeof(model1));
-
-    UniformBufferObject model2;
-    model2.model = glm::translate(glm::mat4(1.0f), glm::vec3(32.0f, 32.0f, 32.0f));
-    UniformBufferObject* buffer = (UniformBufferObject*) this->image->get_uniform_frame_buffer_cpu_mapped(this->frame_index);
-    memcpy((void*)(buffer + 1), &model2, sizeof(model2));
-
     vkCmdPushConstants(
         this->command_buffer,
         this->image->get_graphics_pipeline_layout(),
@@ -241,32 +135,7 @@ FrameResult VulkanFrame::set_camera(
         sizeof(Camera),
         &camera
     );
-    //vkUnmapMemory(device->get_device(), this->uniform_buffer_memory);
-    return FRAME_SUCCESS;
-}
 
-FrameResult VulkanFrame::draw_mesh(Mesh *mesh) {
-    copy_vertex_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, mesh->get_vertex_vector());
-    copy_index_cpu_staging_buffer_to_gpu(this->device, this->image, this->command_pool, mesh->get_index_vector());
-
-    // Draw what is in the gpu buffer
-    VkBuffer vertexBuffers[] = { this->image->get_vertex_buffer() };
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(this->command_buffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(this->command_buffer, this->image->get_index_buffer(), 0, VK_INDEX_TYPE_UINT32);
-
-    uint32_t dynamicOffset = 0; //sizeof(UniformBufferObject);
-    vkCmdBindDescriptorSets(
-        this->command_buffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        this->image->get_graphics_pipeline_layout(),
-        0,
-        1,
-        this->image->get_frame_descriptor_set(this->frame_index),
-        1,
-        &dynamicOffset
-    );
-    vkCmdDrawIndexed(this->command_buffer, (uint32_t) mesh->get_index_vector()->size(), 1, 0, 0, 0);
     return FRAME_SUCCESS;
 }
 
@@ -315,6 +184,10 @@ FrameResult VulkanFrame::end_frame() {
     }
 
     return FRAME_SUCCESS;
+}
+
+VkCommandBuffer VulkanFrame::get_command_buffer() {
+    return this->command_buffer;
 }
 
 void VulkanFrame::destroy() {
