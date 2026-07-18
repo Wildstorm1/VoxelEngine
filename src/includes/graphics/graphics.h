@@ -63,7 +63,7 @@ class Graphics {
         /*
          * Loads a mesh onto the gpu
          */
-        void queue_mesh_to_gpu(mat4 model, Mesh mesh);
+        void queue_mesh_to_gpu(UniformBufferObject *model, Mesh mesh);
 
         /*
          * Transfers models from the cpu to gpu memory

@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 #include "../voxels/mesh.h"
+#include "./structs.h"
 #include "./vulkan_device_private.h"
 
 typedef int MeshHeapResult;
@@ -60,7 +61,7 @@ class VulkanArrayMeshHeap {
 
         MeshHeapResult begin_frame(size_t frame_index, VkCommandBuffer command_buffer);
 
-        MeshHeapResult buffer_model_on_cpu(mat4 model, Mesh mesh);
+        MeshHeapResult buffer_model_on_cpu(UniformBufferObject *model, Mesh mesh);
 
         MeshHeapResult write_models_to_gpu();
 

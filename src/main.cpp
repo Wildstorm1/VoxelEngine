@@ -128,7 +128,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
                 Chunk *chunk = chunk_cache->get_chunk(cx, cy, cz);
                 Chunk **neighbors = chunk_cache->get_chunk_neighbors(cx, cy, cz);
                 meshes[
-                    cy * (horizontal_grid_size - 1) * (horizontal_grid_size - 1) + cx * (horizontal_grid_size - 1) + cz
+                    (cy - 1) * horizontal_grid_size * horizontal_grid_size + (cx - 1) * horizontal_grid_size + (cz - 1)
                 ] = mesher.mesh_chunk_on_cpu(chunk, neighbors);
             }
         }
@@ -211,13 +211,16 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
     graphics->begin_hacky_frame();
 
-    for (uint16_t cy = 1; cy < depth_size - 1; cy++) {
-        for (uint16_t cz = 1; cz < horizontal_grid_size - 1; cz++) {
-            for (uint16_t cx = 1; cx < horizontal_grid_size - 1; cx++) {
+    for (uint16_t cy = 1; cy < 4; cy++) {
+        for (uint16_t cz = 1; cz < 9; cz++) {
+            for (uint16_t cx = 1; cx < 9; cx++) {
                 Mesh* mesh = meshes[
-                    cy * (horizontal_grid_size - 1) * (horizontal_grid_size - 1) + cx * (horizontal_grid_size - 1) + cz
+                    (cy - 1) * horizontal_grid_size * horizontal_grid_size + (cx - 1) * horizontal_grid_size + (cz - 1)
                 ];
-                graphics->queue_mesh_to_gpu(glm::translate(glm::mat4(1.0f), chunk_size_float * glm::vec3(cx - 1, cy - 1, cz - 1)), *mesh);
+
+                UniformBufferObject object;
+                object.model = glm::translate(glm::mat4(1.0f), chunk_size_float * glm::vec3(cx - 1, cy - 1, cz - 1));
+                graphics->queue_mesh_to_gpu(&object, *mesh);
             }
         }
     }
@@ -227,7 +230,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     graphics->begin_render_pass();
     graphics->set_camera(camera);
 
-    for (size_t i = 0; i < 10; i++) {
+    for (size_t i = 0; i < 192; i++) {
         graphics->draw_mesh(i);
     }
 

@@ -174,7 +174,7 @@ MeshHeapResult VulkanArrayMeshHeap::init() {
             return HEAP_FAILURE;
         }
 
-        vkMapMemory(device->get_device(), this->uniform_frame_buffers_memory[i], 0, sizeof(UniformBufferObject), 0, &this->uniform_frame_buffers_cpu_mapped[i]);
+        vkMapMemory(device->get_device(), this->uniform_frame_buffers_memory[i], 0, 1000 * sizeof(UniformBufferObject), 0, &this->uniform_frame_buffers_cpu_mapped[i]);
     }
 
     vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, this->descriptor_set_layout);
@@ -230,7 +230,7 @@ MeshHeapResult VulkanArrayMeshHeap::begin_frame(
 }
 
 MeshHeapResult VulkanArrayMeshHeap::buffer_model_on_cpu(
-    mat4 model,
+    UniformBufferObject *model,
     Mesh mesh
 ) {
     vector<Vertex> *vertex_vector = mesh.get_vertex_vector();
@@ -240,10 +240,10 @@ MeshHeapResult VulkanArrayMeshHeap::buffer_model_on_cpu(
 
     GpuMapping vertex_mapping = {};
     vertex_mapping.offset = 0;
-    vertex_mapping.size = vertex_vector->size() * (size_t) sizeof(Vertex);
+    vertex_mapping.size = vertex_vector->size();
     GpuMapping index_mapping = {};
     index_mapping.offset = 0;
-    index_mapping.size = index_vector->size() * (size_t) sizeof(uint32_t);
+    index_mapping.size = index_vector->size();
 
     if (index != 0) {
         GpuMapping previous_vertex_mapping = this->model_vertex_metadata[index - 1];
@@ -255,14 +255,19 @@ MeshHeapResult VulkanArrayMeshHeap::buffer_model_on_cpu(
     this->model_vertex_metadata.push_back(vertex_mapping);
     this->model_index_metadata.push_back(index_mapping);
 
-    memcpy((char*) this->vertex_staging_buffer_cpu_mapped + vertex_mapping.offset, vertex_vector->data(), vertex_mapping.size);
-    memcpy((char*) this->index_staging_buffer_cpu_mapped + index_mapping.offset, index_vector->data(), index_mapping.size);
-
-    UniformBufferObject model_buffer;
-    model_buffer.model = model;
+    memcpy(
+        (char*) this->vertex_staging_buffer_cpu_mapped + (vertex_mapping.offset * (size_t) sizeof(Vertex)),
+        vertex_vector->data(),
+        vertex_mapping.size * (size_t) sizeof(Vertex)
+    );
+    memcpy(
+        (char*) this->index_staging_buffer_cpu_mapped + (index_mapping.offset * (size_t) sizeof(uint32_t)),
+        index_vector->data(),
+        index_mapping.size * (size_t) sizeof(uint32_t)
+    );
 
     UniformBufferObject* buffer = (UniformBufferObject*) this->uniform_frame_buffers_cpu_mapped[this->frame_index];
-    memcpy((void*)(buffer + index), &model, sizeof(UniformBufferObject));
+    memcpy((void*)(buffer + index + 2), model, sizeof(UniformBufferObject));
     return HEAP_SUCCESS;
 }
 
@@ -321,7 +326,7 @@ MeshHeapResult VulkanArrayMeshHeap::write_models_to_gpu() {
     copy_cpu_staging_buffer_to_gpu(
         this->device,
         this->command_pool,
-        (size_t) sizeof(uint32_t) * 4097152, // Didn't I switch to u32?
+        (size_t) sizeof(uint32_t) * 4097152,
         this->index_staging_buffer,
         this->index_buffer
     );
@@ -340,9 +345,10 @@ MeshHeapResult VulkanArrayMeshHeap::draw_mesh(
 
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(this->command_buffer, 0, 1, vertexBuffers, offsets);
+
     vkCmdBindIndexBuffer(this->command_buffer, this->index_buffer, 0, VK_INDEX_TYPE_UINT32);
 
-    uint32_t dynamicOffset = (uint32_t)(index * sizeof(UniformBufferObject));
+    uint32_t dynamicOffset[] = { (uint32_t)((index + 2) * sizeof(UniformBufferObject)) };
     VkDescriptorSet descriptor_set[] = { this->descriptor_sets[this->frame_index] };
     vkCmdBindDescriptorSets(
         this->command_buffer,
@@ -352,11 +358,18 @@ MeshHeapResult VulkanArrayMeshHeap::draw_mesh(
         1,
         descriptor_set,
         1,
-        &dynamicOffset
+        dynamicOffset
     );
 
-    // TODO: Is this right? Offsets?
-    vkCmdDrawIndexed(this->command_buffer, (uint32_t) index_mapping.size, 1, (uint32_t) index_mapping.offset, (uint32_t) vertex_mapping.offset, 0);
+    vkCmdDrawIndexed(
+        this->command_buffer,
+        (uint32_t) index_mapping.size,
+        1,
+        (uint32_t) index_mapping.offset,
+        (uint32_t) vertex_mapping.offset,
+        0
+    );
+
     return HEAP_SUCCESS;
 }
 

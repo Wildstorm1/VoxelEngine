@@ -117,6 +117,15 @@ Mesh* Mesher::mesh_chunk_on_cpu(Chunk *chunk, Chunk *neighbors[]) {
                 if (chunk->get_voxel_id(x, y, z) != 0) {
                     vec3 v0 = {x, y, z};
 
+                    /*
+                    push_right_face(v0, &vertices, &indices);
+                    push_left_face(v0, &vertices, &indices);
+                    push_front_face(v0, &vertices, &indices);
+                    push_back_face(v0, &vertices, &indices);
+                    push_top_face(v0, &vertices, &indices);
+                    push_bottom_face(v0, &vertices, &indices);
+                    */
+
                     // Right face: +z
                     if (z < chunk_size - 1) {
                         if (chunk->get_voxel_id(x, y, z + 1) == 0) {

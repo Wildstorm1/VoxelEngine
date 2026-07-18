@@ -133,7 +133,7 @@ void Graphics::set_camera(Camera camera) {
     this->frame_buffer[this->frame_index]->set_camera(camera);
 }
 
-void Graphics::queue_mesh_to_gpu(mat4 model, Mesh mesh) {
+void Graphics::queue_mesh_to_gpu(UniformBufferObject *model, Mesh mesh) {
     this->heap->buffer_model_on_cpu(model, mesh);
 }
 
