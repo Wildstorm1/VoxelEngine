@@ -5,7 +5,6 @@
 #include "./structs.h"
 #include "./vulkan_image_private.h"
 #include "./vulkan_device_private.h"
-#include "./vulkan_mesh_heap.h"
 
 typedef int FrameResult;
 
@@ -21,7 +20,6 @@ class VulkanFrame {
     private:
         VulkanDevice *device;
         VulkanImage *image;
-        VulkanArrayMeshHeap *mesh_heap;
         VkCommandPool command_pool;
         VkCommandBuffer command_buffer;
         VkSemaphore image_available_semaphore;
@@ -34,8 +32,7 @@ class VulkanFrame {
             VulkanDevice *device,
             VulkanImage *image,
             VkCommandPool command_pool,
-            size_t frame_index,
-            VulkanArrayMeshHeap *mesh_heap
+            size_t frame_index
         );
 
         FrameResult init();

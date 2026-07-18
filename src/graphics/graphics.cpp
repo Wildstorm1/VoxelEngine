@@ -71,7 +71,7 @@ int Graphics::init(
     this->frame_buffer.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < this->frame_buffer.size(); i++) {
-        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->command_pool, i, this->heap);
+        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->command_pool, i);
         this->frame_buffer[i] = vulkan_frame;
         this->frame_buffer[i]->init();
     }
@@ -104,7 +104,7 @@ int Graphics::resize_window() {
     }
 
     for (size_t i = 0; i < this->frame_buffer.size(); i++) {
-        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->command_pool, i, this->heap);
+        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->command_pool, i);
         this->frame_buffer[i] = vulkan_frame;
         this->frame_buffer[i]->init();
     }

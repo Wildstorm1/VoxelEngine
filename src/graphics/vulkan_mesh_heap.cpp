@@ -1,6 +1,8 @@
+#define GLM_ENABLE_EXPERIMENTAL
 #include <iostream>
 #include <vector>
 #include <array>
+#include <glm/gtx/string_cast.hpp>
 #include <glm/glm.hpp>
 #include "../includes/graphics/structs.h"
 #include "../includes/graphics/vulkan_mesh_heap.h"
@@ -267,7 +269,8 @@ MeshHeapResult VulkanArrayMeshHeap::buffer_model_on_cpu(
     );
 
     UniformBufferObject* buffer = (UniformBufferObject*) this->uniform_frame_buffers_cpu_mapped[this->frame_index];
-    memcpy((void*)(buffer + index + 2), model, sizeof(UniformBufferObject));
+    *(buffer + index) = *model;
+
     return HEAP_SUCCESS;
 }
 
@@ -348,7 +351,7 @@ MeshHeapResult VulkanArrayMeshHeap::draw_mesh(
 
     vkCmdBindIndexBuffer(this->command_buffer, this->index_buffer, 0, VK_INDEX_TYPE_UINT32);
 
-    uint32_t dynamicOffset[] = { (uint32_t)((index + 2) * sizeof(UniformBufferObject)) };
+    uint32_t dynamicOffset[] = { (uint32_t)(index * sizeof(UniformBufferObject)) };
     VkDescriptorSet descriptor_set[] = { this->descriptor_sets[this->frame_index] };
     vkCmdBindDescriptorSets(
         this->command_buffer,

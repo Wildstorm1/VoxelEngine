@@ -17,14 +17,12 @@ VulkanFrame::VulkanFrame(
     VulkanDevice *device,
     VulkanImage *image,
     VkCommandPool command_pool,
-    size_t frame_index,
-    VulkanArrayMeshHeap *mesh_heap
+    size_t frame_index
 ) {
     this->command_pool = command_pool;
     this->device = device;
     this->image = image;
     this->frame_index = frame_index;
-    this->mesh_heap = mesh_heap;
 }
 
 FrameResult VulkanFrame::init() {
@@ -130,15 +128,6 @@ FrameResult VulkanFrame::set_camera(
     Camera camera
 ) {
     //vkMapMemory(device->get_device(), this->uniform_buffer_memory, 0, sizeof(UniformBufferObject), 0, &this->uniform_buffer_cpu_memory);
-    UniformBufferObject model1;
-    model1.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-    memcpy(this->mesh_heap->get_uniform_frame_buffer_cpu_mapped(this->frame_index), &model1, sizeof(model1));
-
-    UniformBufferObject model2;
-    model2.model = glm::translate(glm::mat4(1.0f), glm::vec3(32.0f, 32.0f, 32.0f));
-    UniformBufferObject* buffer = (UniformBufferObject*) this->mesh_heap->get_uniform_frame_buffer_cpu_mapped(this->frame_index);
-    memcpy((void*)(buffer + 1), &model2, sizeof(model2));
-
     vkCmdPushConstants(
         this->command_buffer,
         this->image->get_graphics_pipeline_layout(),
