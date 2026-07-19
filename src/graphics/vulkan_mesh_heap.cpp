@@ -380,46 +380,6 @@ size_t VulkanArrayMeshHeap::get_mesh_count() {
     return this->model_index_metadata.size();
 }
 
-VkDeviceMemory VulkanArrayMeshHeap::get_vertex_buffer_device_memory() {
-    return this->vertex_buffer_memory;
-}
-
-VkBuffer VulkanArrayMeshHeap::get_vertex_buffer() {
-    return this->vertex_buffer;
-}
-
-VkDeviceMemory VulkanArrayMeshHeap::get_vertex_staging_buffer_device_memory() {
-    return this->vertex_staging_buffer_memory;
-}
-
-VkBuffer VulkanArrayMeshHeap::get_vertex_staging_buffer() {
-    return this->vertex_staging_buffer;
-}
-
-VkDeviceMemory VulkanArrayMeshHeap::get_index_buffer_device_memory() {
-    return this->index_buffer_memory;
-}
-
-VkBuffer VulkanArrayMeshHeap::get_index_buffer() {
-    return this->index_buffer;
-}
-
-VkDeviceMemory VulkanArrayMeshHeap::get_index_staging_buffer_device_memory() {
-    return this->index_staging_buffer_memory;
-}
-
-VkBuffer VulkanArrayMeshHeap::get_index_staging_buffer() {
-    return this->index_staging_buffer;
-}
-
-VkDescriptorSet* VulkanArrayMeshHeap::get_frame_descriptor_set(size_t i) {
-    return &this->descriptor_sets[i];
-}
-
-void* VulkanArrayMeshHeap::get_uniform_frame_buffer_cpu_mapped(size_t i) {
-    return this->uniform_frame_buffers_cpu_mapped[i];
-}
-
 VkDescriptorPool *VulkanArrayMeshHeap::get_descriptor_pool() {
     return &this->descriptor_pool;
 }

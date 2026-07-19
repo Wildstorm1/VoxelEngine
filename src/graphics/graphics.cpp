@@ -145,6 +145,10 @@ void Graphics::draw_mesh(size_t index) {
     this->heap->draw_mesh(index, this->image->get_graphics_pipeline_layout());
 }
 
+size_t Graphics::get_mesh_count()  {
+    return this->heap->get_mesh_count();
+}
+
 /*
  * Ends a render pass
  */

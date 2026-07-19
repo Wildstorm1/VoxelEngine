@@ -34,8 +34,8 @@ glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-const uint16_t chunk_size = CHUNK_SIZE_16;
-const float chunk_size_float = CHUNK_SIZE_16;
+const uint16_t chunk_size = CHUNK_SIZE_8;
+const float chunk_size_float = CHUNK_SIZE_8;
 const uint16_t horizontal_grid_size = 10;
 const uint16_t depth_size = 5;
 chrono::steady_clock::time_point start_time;
@@ -170,6 +170,45 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     return SDL_APP_CONTINUE;
 }
 
+bool point_is_inside_frustum(glm::vec3 point, glm::mat4 matrix) {
+    glm::vec4 v = glm::vec4(point, 1.0);
+    float dot1 = glm::dot(v, matrix[3] + matrix[0]);
+    float dot2 = glm::dot(v, matrix[3] - matrix[0]);
+    float dot3 = glm::dot(v, matrix[3] + matrix[1]);
+    float dot4 = glm::dot(v, matrix[3] - matrix[1]);
+    float dot5 = glm::dot(v, matrix[2]);
+    float dot6 = glm::dot(v, matrix[3] - matrix[2]);
+
+    return dot1 > 0 &&
+        dot2 > 0 &&
+        dot3 > 0 &&
+        dot4 > 0 &&
+        dot5 > 0 &&
+        dot6 > 0;
+}
+
+bool chunk_is_inside_frustum(
+    uint16_t cx, uint16_t cy, uint16_t cz, float chunk_size, glm::mat4 matrix
+) {
+    glm::vec3 point_0_0_0 = chunk_size * glm::vec3(cx, cy, cz);
+    glm::vec3 point_1_0_0 = chunk_size * glm::vec3(cx + 1, cy, cz);
+    glm::vec3 point_0_1_0 = chunk_size * glm::vec3(cx, cy + 1, cz);
+    glm::vec3 point_1_1_0 = chunk_size * glm::vec3(cx + 1, cy + 1, cz);
+    glm::vec3 point_0_0_1 = chunk_size * glm::vec3(cx, cy, cz + 1);
+    glm::vec3 point_1_0_1 = chunk_size * glm::vec3(cx + 1, cy, cz + 1);
+    glm::vec3 point_0_1_1 = chunk_size * glm::vec3(cx, cy + 1, cz + 1);
+    glm::vec3 point_1_1_1 = chunk_size * glm::vec3(cx + 1, cy + 1, cz + 1);
+
+    return point_is_inside_frustum(point_0_0_0, matrix) ||
+        point_is_inside_frustum(point_1_0_0, matrix) ||
+        point_is_inside_frustum(point_0_1_0, matrix) ||
+        point_is_inside_frustum(point_1_1_0, matrix) ||
+        point_is_inside_frustum(point_0_0_1, matrix) ||
+        point_is_inside_frustum(point_1_0_1, matrix) ||
+        point_is_inside_frustum(point_0_1_1, matrix) ||
+        point_is_inside_frustum(point_1_1_1, matrix);
+}
+
 SDL_AppResult SDL_AppIterate(void *appstate) {
     // Your game loop / rendering code here
     chrono::steady_clock::time_point now_time = chrono::high_resolution_clock::now();
@@ -220,7 +259,10 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
                 UniformBufferObject object;
                 object.model = glm::translate(glm::mat4(1.0f), chunk_size_float * glm::vec3(cx - 1, cy - 1, cz - 1));
-                graphics->queue_mesh_to_gpu(&object, *mesh);
+
+                if (!chunk_is_inside_frustum(cx - 1, cy - 1, cz - 1, chunk_size_float, camera.proj * camera.view)) {
+                    graphics->queue_mesh_to_gpu(&object, *mesh);
+                }
             }
         }
     }
@@ -230,7 +272,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     graphics->begin_render_pass();
     graphics->set_camera(camera);
 
-    for (size_t i = 0; i < 192; i++) {
+    for (size_t i = 0; i < graphics->get_mesh_count(); i++) {
         graphics->draw_mesh(i);
     }
 

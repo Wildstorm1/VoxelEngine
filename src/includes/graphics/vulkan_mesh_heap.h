@@ -70,56 +70,6 @@ class VulkanArrayMeshHeap {
         size_t get_mesh_count();
 
         /*
-         * Return a handle to the vertex buffers device memory
-         */
-        VkDeviceMemory get_vertex_buffer_device_memory();
-
-        /*
-         * Return a handle to the vertex buffer
-         */
-        VkBuffer get_vertex_buffer();
-
-        /*
-         * Return a handle to the staging buffers device memory
-         */
-        VkDeviceMemory get_vertex_staging_buffer_device_memory();
-
-        /*
-         * Return a handle to the staging buffer
-         */
-        VkBuffer get_vertex_staging_buffer();
-
-        /*
-         * Return a handle to the index buffers device memory
-         */
-        VkDeviceMemory get_index_buffer_device_memory();
-
-        /*
-         * Return a handle to the index buffer
-         */
-        VkBuffer get_index_buffer();
-
-        /*
-         * Return a handle to the index buffers device memory
-         */
-        VkDeviceMemory get_index_staging_buffer_device_memory();
-
-        /*
-         * Return a handle to the index buffer
-         */
-        VkBuffer get_index_staging_buffer();
-
-        /*
-         * Return a handle to the ith frames descriptor set
-         */
-        VkDescriptorSet* get_frame_descriptor_set(size_t i);
-
-        /*
-         * Return a handle to the ith frames uniform buffer
-         */
-        void* get_uniform_frame_buffer_cpu_mapped(size_t i);
-
-        /*
          * Return a handle to the descriptor pool
          */
         VkDescriptorPool* get_descriptor_pool();

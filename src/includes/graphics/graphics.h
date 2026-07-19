@@ -76,6 +76,11 @@ class Graphics {
         void draw_mesh(size_t index);
 
         /*
+         * Return the number of meshes stored in the heap
+         */
+        size_t get_mesh_count();
+
+        /*
          * Ends a render pass
          */
         void end_render_pass();
