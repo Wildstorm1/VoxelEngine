@@ -34,9 +34,9 @@ glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-const uint16_t chunk_size = CHUNK_SIZE_8;
-const float chunk_size_float = CHUNK_SIZE_8;
-const uint16_t horizontal_grid_size = 10;
+const uint16_t chunk_size = CHUNK_SIZE_32;
+const float chunk_size_float = CHUNK_SIZE_32;
+const uint16_t horizontal_grid_size = 8;
 const uint16_t depth_size = 5;
 chrono::steady_clock::time_point start_time;
 float delta_time = 0;
@@ -161,19 +161,19 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 
     if (event->type == SDL_EVENT_KEY_DOWN) {
         if (event->key.key == SDLK_W) {
-            cameraPos += 0.1f * cameraFront;
+            cameraPos += 0.2f * cameraFront;
         }
 
         if (event->key.key == SDLK_S) {
-            cameraPos -= 0.1f * cameraFront;
+            cameraPos -= 0.2f * cameraFront;
         }
 
         if (event->key.key == SDLK_A) {
-            cameraPos -= 0.1f * glm::normalize(glm::cross(cameraFront, cameraUp));
+            cameraPos -= 0.2f * glm::normalize(glm::cross(cameraFront, cameraUp));
         }
 
         if (event->key.key == SDLK_D) {
-            cameraPos += 0.1f * glm::normalize(glm::cross(cameraFront, cameraUp));
+            cameraPos += 0.2f * glm::normalize(glm::cross(cameraFront, cameraUp));
         }
 
         if (event->key.key == SDLK_Q) {
@@ -228,6 +228,19 @@ bool chunk_is_inside_frustum(
         point_is_inside_frustum(point_1_1_1, matrix);
 }
 
+bool is_camera_chunk(glm::vec3 camera_pos, uint16_t cx, uint16_t cy, uint16_t cz, float chunk_size) {
+    glm::vec3 point_0_0_0 = chunk_size * glm::vec3(cx, cy, cz);
+    glm::vec3 point_1_1_1 = chunk_size * glm::vec3(cx + 1, cy + 1, cz + 1);
+
+    return camera_pos.x <= point_1_1_1.x && camera_pos.x >= point_0_0_0.x && camera_pos.y <= point_1_1_1.y &&
+        camera_pos.y >= point_0_0_0.y && camera_pos.z <= point_1_1_1.z && camera_pos.z >= point_0_0_0.z;
+}
+
+bool is_chunk_nearby_camera(glm::vec3 camera_pos, uint16_t cx, uint16_t cy, uint16_t cz, float chunk_size) {
+    glm::vec3 point = chunk_size * (0.5f + glm::vec3(cx, cy, cz));
+    return glm::distance(point, camera_pos) <= chunk_size * 2.0f;
+}
+
 SDL_AppResult SDL_AppIterate(void *appstate) {
     // Your game loop / rendering code here
     chrono::steady_clock::time_point now_time = chrono::high_resolution_clock::now();
@@ -269,9 +282,9 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
     graphics->begin_hacky_frame();
 
-    for (uint16_t cy = 1; cy < 4; cy++) {
-        for (uint16_t cz = 1; cz < 9; cz++) {
-            for (uint16_t cx = 1; cx < 9; cx++) {
+    for (uint16_t cy = 1; cy < depth_size - 1; cy++) {
+        for (uint16_t cz = 1; cz < horizontal_grid_size - 1; cz++) {
+            for (uint16_t cx = 1; cx < horizontal_grid_size - 1; cx++) {
                 Mesh* mesh = meshes[
                     (cy - 1) * horizontal_grid_size * horizontal_grid_size + (cx - 1) * horizontal_grid_size + (cz - 1)
                 ];
@@ -279,7 +292,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                 UniformBufferObject object;
                 object.model = glm::translate(glm::mat4(1.0f), chunk_size_float * glm::vec3(cx - 1, cy - 1, cz - 1));
 
-                if (chunk_is_inside_frustum(cx - 1, cy - 1, cz - 1, chunk_size_float, camera.proj * camera.view)) {
+                // If the camera is inside the chunk, we also need to include it
+                if (
+                    is_camera_chunk(cameraPos, cx - 1, cy - 1, cz - 1, chunk_size_float) ||
+                    is_chunk_nearby_camera(cameraPos, cx - 1, cy - 1, cz - 1, chunk_size_float) ||
+                    chunk_is_inside_frustum(cx - 1, cy - 1, cz - 1, chunk_size_float, camera.proj * camera.view)
+                ) {
                     graphics->queue_mesh_to_gpu(&object, *mesh);
                 }
             }

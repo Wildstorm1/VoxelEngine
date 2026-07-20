@@ -71,7 +71,7 @@ VkResult create_descriptor_pool(
 MeshHeapResult VulkanArrayMeshHeap::init() {
     VkResult vertex_buffer_result = create_buffer(
         device,
-        sizeof(Vertex) * 4097152,
+        sizeof(Vertex) * 25000000,
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         &this->vertex_buffer,
@@ -87,7 +87,7 @@ MeshHeapResult VulkanArrayMeshHeap::init() {
 
     VkResult staging_buffer_result = create_buffer(
         device,
-        sizeof(Vertex) * 4097152,
+        sizeof(Vertex) * 25000000,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         &this->vertex_staging_buffer,
@@ -101,11 +101,11 @@ MeshHeapResult VulkanArrayMeshHeap::init() {
         return HEAP_FAILURE;
     }
 
-    vkMapMemory(device->get_device(), this->vertex_staging_buffer_memory, 0, sizeof(Vertex) * 4097152, 0, &this->vertex_staging_buffer_cpu_mapped);
+    vkMapMemory(device->get_device(), this->vertex_staging_buffer_memory, 0, sizeof(Vertex) * 25000000, 0, &this->vertex_staging_buffer_cpu_mapped);
 
     VkResult index_buffer_result = create_buffer(
         device,
-        sizeof(uint32_t) * 4097152,
+        sizeof(uint32_t) * 25000000,
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         &this->index_buffer,
@@ -121,7 +121,7 @@ MeshHeapResult VulkanArrayMeshHeap::init() {
 
     VkResult index_staging_buffer_result = create_buffer(
         device,
-        sizeof(uint32_t) * 4097152,
+        sizeof(uint32_t) * 25000000,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         &this->index_staging_buffer,
@@ -135,7 +135,7 @@ MeshHeapResult VulkanArrayMeshHeap::init() {
         return HEAP_FAILURE;
     }
 
-    vkMapMemory(device->get_device(), this->index_staging_buffer_memory, 0, sizeof(uint32_t) * 4097152, 0, &this->index_staging_buffer_cpu_mapped);
+    vkMapMemory(device->get_device(), this->index_staging_buffer_memory, 0, sizeof(uint32_t) * 25000000, 0, &this->index_staging_buffer_cpu_mapped);
 
     VkResult descriptorSetLayoutResult = create_descriptor_set_layout(device, &descriptor_set_layout);
 
@@ -321,7 +321,7 @@ MeshHeapResult VulkanArrayMeshHeap::write_models_to_gpu() {
     copy_cpu_staging_buffer_to_gpu(
         this->device,
         this->command_pool,
-        (size_t) sizeof(Vertex) * 4097152,
+        (size_t) sizeof(Vertex) * 25000000,
         this->vertex_staging_buffer,
         this->vertex_buffer
     );
@@ -329,7 +329,7 @@ MeshHeapResult VulkanArrayMeshHeap::write_models_to_gpu() {
     copy_cpu_staging_buffer_to_gpu(
         this->device,
         this->command_pool,
-        (size_t) sizeof(uint32_t) * 4097152,
+        (size_t) sizeof(uint32_t) * 25000000,
         this->index_staging_buffer,
         this->index_buffer
     );
