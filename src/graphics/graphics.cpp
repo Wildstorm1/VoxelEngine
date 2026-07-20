@@ -14,6 +14,7 @@
 #include "../includes/graphics/graphics.h"
 #include "../includes/graphics/vulkan_instance_private.h"
 #include "../includes/graphics/vulkan_image_private.h"
+#include "../includes/graphics/vulkan_chunk_pipeline.h"
 
 using namespace std;
 
@@ -61,17 +62,24 @@ int Graphics::init(
         return EXIT_FAILURE;
     }
 
-    this->image = new VulkanImage(this->heap);
+    this->image = new VulkanImage();
     VulkanImageResult image_result = this->image->init(this->window, &this->device);
 
     if (image_result != VULKAN_IMAGE_INIT_SUCCESS) {
         return EXIT_FAILURE;
     }
 
+    this->pipeline = new VulkanChunkPipeline();
+    VulkanChunkPipelineResult pipeline_result = this->pipeline->init(&this->device, this->image, this->heap);
+
+    if (pipeline_result != VULKAN_CHUNK_PIPELINE_INIT_SUCCESS) {
+        return EXIT_FAILURE;
+    }
+
     this->frame_buffer.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < this->frame_buffer.size(); i++) {
-        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->command_pool, i);
+        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->pipeline, this->command_pool, i);
         this->frame_buffer[i] = vulkan_frame;
         this->frame_buffer[i]->init();
     }
@@ -88,6 +96,9 @@ int Graphics::resize_window() {
     this->image->destroy(&this->device);
     delete this->image;
 
+    this->pipeline->destroy(&this->device);
+    delete this->pipeline;
+
     // Free the framebuffers
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         this->frame_buffer[i]->destroy();
@@ -96,15 +107,22 @@ int Graphics::resize_window() {
 
     this->device.query_device_information();
 
-    this->image = new VulkanImage(this->heap);
+    this->image = new VulkanImage();
     VulkanImageResult image_result = this->image->init(window, &this->device);
 
     if (image_result != VULKAN_IMAGE_INIT_SUCCESS) {
         return EXIT_FAILURE;
     }
 
+    this->pipeline = new VulkanChunkPipeline();
+    VulkanChunkPipelineResult pipeline_result = this->pipeline->init(&this->device, this->image, this->heap);
+
+    if (pipeline_result != VULKAN_CHUNK_PIPELINE_INIT_SUCCESS) {
+        return EXIT_FAILURE;
+    }
+
     for (size_t i = 0; i < this->frame_buffer.size(); i++) {
-        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->command_pool, i);
+        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->pipeline, this->command_pool, i);
         this->frame_buffer[i] = vulkan_frame;
         this->frame_buffer[i]->init();
     }
@@ -142,7 +160,8 @@ void Graphics::push_models_to_gpu() {
 }
 
 void Graphics::draw_mesh(size_t index) {
-    this->heap->draw_mesh(index, this->image->get_graphics_pipeline_layout());
+    // Note there is a circular dependency here. heap -> pipeline pipeline -> heap
+    this->heap->draw_mesh(index, this->pipeline->get_graphics_pipeline_layout());
 }
 
 size_t Graphics::get_mesh_count()  {
@@ -183,6 +202,9 @@ SDL_Window *Graphics::release() {
             this->frame_buffer[i]->destroy();
             delete this->frame_buffer[i];
         }
+
+        this->pipeline->destroy(&this->device);
+        delete this->pipeline;        
 
         vkDestroyCommandPool(this->device.get_device(), this->command_pool, nullptr);
 

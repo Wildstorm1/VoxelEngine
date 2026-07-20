@@ -3,7 +3,6 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 #include "./vulkan_device_private.h"
-#include "./vulkan_mesh_heap.h"
 
 typedef int VulkanImageResult;
 
@@ -26,15 +25,12 @@ class VulkanImage {
         VkFormat swap_chain_image_format;
         VkExtent2D swap_chain_extent;
         VkRenderPass render_pass;
-        VkPipelineLayout pipeline_layout;
-        VkPipeline graphics_pipeline;
         VkImage depth_image;
         VkDeviceMemory depth_image_memory;
         VkImageView depth_image_view;
-        VulkanArrayMeshHeap* heap;
 
     public:
-        VulkanImage(VulkanArrayMeshHeap* heap);
+        VulkanImage();
 
         /*
          * Initializes a new instance of image related resources
@@ -68,16 +64,6 @@ class VulkanImage {
          * Return a handle to the i'th framebuffer
          */
         VkFramebuffer get_framebuffer(size_t i);
-
-        /*
-         * Return a handle to the graphics pipeline layout
-         */
-        VkPipelineLayout get_graphics_pipeline_layout();
-
-        /*
-         * Return a handle to the graphics pipeline
-         */
-        VkPipeline get_graphics_pipeline();
 
         /*
          * Frees the image related resources

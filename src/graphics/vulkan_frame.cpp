@@ -9,6 +9,7 @@
 #include "../includes/graphics/structs.h"
 #include "../includes/graphics/vulkan_frame.h"
 #include "../includes/graphics/vulkan_image_private.h"
+#include "../includes/graphics/vulkan_chunk_pipeline.h"
 #include "../includes/voxels/chunk.h"
 
 using namespace std;
@@ -16,6 +17,7 @@ using namespace std;
 VulkanFrame::VulkanFrame(
     VulkanDevice *device,
     VulkanImage *image,
+    VulkanChunkPipeline *pipeline,
     VkCommandPool command_pool,
     size_t frame_index
 ) {
@@ -23,6 +25,7 @@ VulkanFrame::VulkanFrame(
     this->device = device;
     this->image = image;
     this->frame_index = frame_index;
+    this->pipeline = pipeline;
 }
 
 FrameResult VulkanFrame::init() {
@@ -104,7 +107,7 @@ FrameResult VulkanFrame::begin_frame() {
     renderPassInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(this->command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(this->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, this->image->get_graphics_pipeline());
+    vkCmdBindPipeline(this->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, this->pipeline->get_graphics_pipeline());
 
     // TODO: Does this extent re-fresh?
     VkViewport viewport {};
@@ -130,7 +133,7 @@ FrameResult VulkanFrame::set_camera(
     //vkMapMemory(device->get_device(), this->uniform_buffer_memory, 0, sizeof(UniformBufferObject), 0, &this->uniform_buffer_cpu_memory);
     vkCmdPushConstants(
         this->command_buffer,
-        this->image->get_graphics_pipeline_layout(),
+        this->pipeline->get_graphics_pipeline_layout(),
         VK_SHADER_STAGE_VERTEX_BIT,
         0,
         sizeof(Camera),

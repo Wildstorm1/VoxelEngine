@@ -11,6 +11,7 @@
 #include "./vulkan_instance_private.h"
 #include "./vulkan_image_private.h"
 #include "./vulkan_device_private.h"
+#include "./vulkan_chunk_pipeline.h"
 #include "../voxels/mesh.h"
 
 using namespace std;
@@ -26,6 +27,7 @@ class Graphics {
         VulkanDevice device;
         VulkanImage *image;
         VulkanArrayMeshHeap *heap;
+        VulkanChunkPipeline *pipeline;
 
         SDL_Window *window;
         VkCommandPool command_pool;

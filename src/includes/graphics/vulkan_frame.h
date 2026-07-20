@@ -5,6 +5,7 @@
 #include "./structs.h"
 #include "./vulkan_image_private.h"
 #include "./vulkan_device_private.h"
+#include "./vulkan_chunk_pipeline.h"
 
 typedef int FrameResult;
 
@@ -14,12 +15,13 @@ typedef int FrameResult;
 using namespace std;
 
 /*
- * Module defines vulkan specific implementation for
+ * Module defines vulkan specific implementation for a frame
  */
 class VulkanFrame {
     private:
         VulkanDevice *device;
         VulkanImage *image;
+        VulkanChunkPipeline *pipeline;
         VkCommandPool command_pool;
         VkCommandBuffer command_buffer;
         VkSemaphore image_available_semaphore;
@@ -31,6 +33,7 @@ class VulkanFrame {
         VulkanFrame(
             VulkanDevice *device,
             VulkanImage *image,
+            VulkanChunkPipeline *pipeline,
             VkCommandPool command_pool,
             size_t frame_index
         );
