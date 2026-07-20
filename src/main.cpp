@@ -45,6 +45,9 @@ Graphics *graphics = nullptr;
 SDL_Window *window = nullptr;
 ChunkCache *chunk_cache = nullptr;
 vector<Mesh*> meshes = {};
+vector<size_t> post_cull_indicies = {};
+bool q_pressed = false;
+bool e_pressed = false;
 
 auto simplex = FastNoise::New<FastNoise::Simplex>();
 auto fractal = FastNoise::New<FastNoise::FractalFBm>();
@@ -121,6 +124,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     Mesher mesher = Mesher();
     meshes.resize((horizontal_grid_size - 1) * (horizontal_grid_size - 1) * (depth_size - 1));
+    post_cull_indicies.resize((horizontal_grid_size - 1) * (horizontal_grid_size - 1) * (depth_size - 1));
 
     for (uint16_t cy = 1; cy < depth_size - 1; cy++) {
         for (uint16_t cz = 1; cz < horizontal_grid_size - 1; cz++) {
@@ -158,12 +162,26 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     if (event->type == SDL_EVENT_KEY_DOWN) {
         if (event->key.key == SDLK_W) {
             cameraPos += 0.1f * cameraFront;
-        } else if (event->key.key == SDLK_S) {
+        }
+
+        if (event->key.key == SDLK_S) {
             cameraPos -= 0.1f * cameraFront;
-        } else if (event->key.key == SDLK_A) {
+        }
+
+        if (event->key.key == SDLK_A) {
             cameraPos -= 0.1f * glm::normalize(glm::cross(cameraFront, cameraUp));
-        } else if (event->key.key == SDLK_D) {
+        }
+
+        if (event->key.key == SDLK_D) {
             cameraPos += 0.1f * glm::normalize(glm::cross(cameraFront, cameraUp));
+        }
+
+        if (event->key.key == SDLK_Q) {
+            q_pressed = true;
+        }
+
+        if (event->key.key == SDLK_E) {
+            e_pressed = true;
         }
     }
 
@@ -171,13 +189,14 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 }
 
 bool point_is_inside_frustum(glm::vec3 point, glm::mat4 matrix) {
+    glm::mat4 transpose = glm::transpose(matrix);
     glm::vec4 v = glm::vec4(point, 1.0);
-    float dot1 = glm::dot(v, matrix[3] + matrix[0]);
-    float dot2 = glm::dot(v, matrix[3] - matrix[0]);
-    float dot3 = glm::dot(v, matrix[3] + matrix[1]);
-    float dot4 = glm::dot(v, matrix[3] - matrix[1]);
-    float dot5 = glm::dot(v, matrix[2]);
-    float dot6 = glm::dot(v, matrix[3] - matrix[2]);
+    float dot1 = glm::dot(v, transpose[3] + transpose[0]);
+    float dot2 = glm::dot(v, transpose[3] - transpose[0]);
+    float dot3 = glm::dot(v, transpose[3] + transpose[1]);
+    float dot4 = glm::dot(v, transpose[3] - transpose[1]);
+    float dot5 = glm::dot(v, transpose[2]);
+    float dot6 = glm::dot(v, transpose[3] - transpose[2]);
 
     return dot1 > 0 &&
         dot2 > 0 &&
@@ -260,7 +279,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                 UniformBufferObject object;
                 object.model = glm::translate(glm::mat4(1.0f), chunk_size_float * glm::vec3(cx - 1, cy - 1, cz - 1));
 
-                if (!chunk_is_inside_frustum(cx - 1, cy - 1, cz - 1, chunk_size_float, camera.proj * camera.view)) {
+                if (chunk_is_inside_frustum(cx - 1, cy - 1, cz - 1, chunk_size_float, camera.proj * camera.view)) {
                     graphics->queue_mesh_to_gpu(&object, *mesh);
                 }
             }
