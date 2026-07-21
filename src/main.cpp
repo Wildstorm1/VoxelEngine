@@ -46,8 +46,7 @@ SDL_Window *window = nullptr;
 ChunkCache *chunk_cache = nullptr;
 vector<Mesh*> meshes = {};
 vector<size_t> post_cull_indicies = {};
-bool q_pressed = false;
-bool e_pressed = false;
+bool re_center_mouse = true;
 
 auto simplex = FastNoise::New<FastNoise::Simplex>();
 auto fractal = FastNoise::New<FastNoise::FractalFBm>();
@@ -176,12 +175,11 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             cameraPos += 0.2f * glm::normalize(glm::cross(cameraFront, cameraUp));
         }
 
-        if (event->key.key == SDLK_Q) {
-            q_pressed = true;
-        }
-
         if (event->key.key == SDLK_E) {
-            e_pressed = true;
+            re_center_mouse = !re_center_mouse;
+            WindowSize size = graphics->get_window_size();
+            x = size.width / 2;
+            y = size.height / 2;
         }
     }
 
@@ -247,34 +245,36 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     delta_time = chrono::duration<float, chrono::seconds::period>(now_time - start_time).count();
     start_time = now_time;
 
-    float mx, my;
-    SDL_GetMouseState(&mx, &my);
-
-    const float sensitivity = 0.01f;
-    float dx, dy;
-    dx = (mx - x) * sensitivity;
-    dy = (my - y) * sensitivity;
-
-    yaw = yaw + dx;
-    pitch = pitch - dy;
-
-    if (pitch > glm::half_pi<float>() - 0.017f) {
-        pitch = glm::half_pi<float>() - 0.017f;
-    }
- 
-    if (pitch < -1 * glm::half_pi<float>() + 0.017f) {
-        pitch = -1 * glm::half_pi<float>() + 0.017f;
-    }
-
-    glm::vec3 direction;
-    direction.x = cos(yaw) * cos(pitch);
-    direction.y = sin(pitch);
-    direction.z = sin(yaw) * cos(pitch);
-    cameraFront = glm::normalize(direction);
-
-    SDL_WarpMouseInWindow(window, windowStartWidth / 2, windowStartHeight / 2);
-
     WindowSize size = graphics->get_window_size();
+
+    if (re_center_mouse) {
+        float mx, my;
+        SDL_GetMouseState(&mx, &my);
+
+        const float sensitivity = 0.01f;
+        float dx, dy;
+        dx = (mx - x) * sensitivity;
+        dy = (my - y) * sensitivity;
+
+        yaw = yaw + dx;
+        pitch = pitch - dy;
+
+        if (pitch > glm::half_pi<float>() - 0.017f) {
+            pitch = glm::half_pi<float>() - 0.017f;
+        }
+    
+        if (pitch < -1 * glm::half_pi<float>() + 0.017f) {
+            pitch = -1 * glm::half_pi<float>() + 0.017f;
+        }
+
+        glm::vec3 direction;
+        direction.x = cos(yaw) * cos(pitch);
+        direction.y = sin(pitch);
+        direction.z = sin(yaw) * cos(pitch);
+        cameraFront = glm::normalize(direction);
+
+        SDL_WarpMouseInWindow(window, size.width / 2, size.height / 2);
+    }
 
     camera.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
     camera.proj = glm::perspective(glm::radians(45.0f), size.width / (float) size.height, 0.1f, 1000.0f);
