@@ -13,7 +13,8 @@
 #include "../includes/graphics/vulkan_mesh_heap.h"
 #include "../includes/graphics/graphics.h"
 #include "../includes/graphics/vulkan_instance_private.h"
-#include "../includes/graphics/vulkan_image_private.h"
+#include "../includes/graphics/vulkan_swapchain.h"
+#include "../includes/graphics/vulkan_render_pass.h"
 #include "../includes/graphics/vulkan_chunk_pipeline.h"
 
 using namespace std;
@@ -62,15 +63,22 @@ int Graphics::init(
         return EXIT_FAILURE;
     }
 
-    this->image = new VulkanImage();
-    VulkanImageResult image_result = this->image->init(this->window, &this->device);
+    this->swapchain = new VulkanSwapchain();
+    VulkanSwapchainResult swap_chain_result = this->swapchain->init(this->window, &this->device);
 
-    if (image_result != VULKAN_IMAGE_INIT_SUCCESS) {
+    if (swap_chain_result != VULKAN_SWAPCHAIN_INIT_SUCCESS) {
+        return EXIT_FAILURE;
+    }
+
+    this->render_pass = new VulkanRenderPass();
+    VulkanSwapchainResult render_pass_result = this->render_pass->init(this->window, &this->device, this->swapchain);
+
+    if (render_pass_result != VULKAN_IMAGE_INIT_SUCCESS) {
         return EXIT_FAILURE;
     }
 
     this->pipeline = new VulkanChunkPipeline();
-    VulkanChunkPipelineResult pipeline_result = this->pipeline->init(&this->device, this->image, this->heap);
+    VulkanChunkPipelineResult pipeline_result = this->pipeline->init(&this->device, this->render_pass, this->swapchain, this->heap);
 
     if (pipeline_result != VULKAN_CHUNK_PIPELINE_INIT_SUCCESS) {
         return EXIT_FAILURE;
@@ -79,7 +87,7 @@ int Graphics::init(
     this->frame_buffer.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < this->frame_buffer.size(); i++) {
-        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->pipeline, this->command_pool, i);
+        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->swapchain, this->render_pass, this->pipeline, this->command_pool, i);
         this->frame_buffer[i] = vulkan_frame;
         this->frame_buffer[i]->init();
     }
@@ -93,8 +101,11 @@ int Graphics::init(
 int Graphics::resize_window() {
     vkDeviceWaitIdle(this->device.get_device());
 
-    this->image->destroy(&this->device);
-    delete this->image;
+    this->swapchain->destroy(&this->device);
+    delete this->swapchain;
+
+    this->render_pass->destroy(&this->device);
+    delete this->render_pass;
 
     this->pipeline->destroy(&this->device);
     delete this->pipeline;
@@ -107,22 +118,29 @@ int Graphics::resize_window() {
 
     this->device.query_device_information();
 
-    this->image = new VulkanImage();
-    VulkanImageResult image_result = this->image->init(window, &this->device);
+    this->swapchain = new VulkanSwapchain();
+    VulkanSwapchainResult swap_chain_result = this->swapchain->init(this->window, &this->device);
 
-    if (image_result != VULKAN_IMAGE_INIT_SUCCESS) {
+    if (swap_chain_result != VULKAN_SWAPCHAIN_INIT_SUCCESS) {
+        return EXIT_FAILURE;
+    }
+
+    this->render_pass = new VulkanRenderPass();
+    VulkanSwapchainResult render_pass_result = this->render_pass->init(this->window, &this->device, this->swapchain);
+
+    if (render_pass_result != VULKAN_IMAGE_INIT_SUCCESS) {
         return EXIT_FAILURE;
     }
 
     this->pipeline = new VulkanChunkPipeline();
-    VulkanChunkPipelineResult pipeline_result = this->pipeline->init(&this->device, this->image, this->heap);
+    VulkanChunkPipelineResult pipeline_result = this->pipeline->init(&this->device, this->render_pass, this->swapchain, this->heap);
 
     if (pipeline_result != VULKAN_CHUNK_PIPELINE_INIT_SUCCESS) {
         return EXIT_FAILURE;
     }
 
     for (size_t i = 0; i < this->frame_buffer.size(); i++) {
-        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->image, this->pipeline, this->command_pool, i);
+        VulkanFrame *vulkan_frame = new VulkanFrame(&this->device, this->swapchain, this->render_pass, this->pipeline, this->command_pool, i);
         this->frame_buffer[i] = vulkan_frame;
         this->frame_buffer[i]->init();
     }
@@ -177,7 +195,7 @@ void Graphics::end_render_pass() {
 }
 
 WindowSize Graphics::get_window_size() {
-    VkExtent2D extent = this->image->get_swapchain_extent();
+    VkExtent2D extent = this->swapchain->get_swapchain_extent();
 
     WindowSize window_size = {};
     window_size.width = extent.width;
@@ -208,8 +226,12 @@ SDL_Window *Graphics::release() {
 
         vkDestroyCommandPool(this->device.get_device(), this->command_pool, nullptr);
 
-        this->image->destroy(&this->device);
-        delete this->image;
+        this->swapchain->destroy(&this->device);
+        delete this->swapchain;
+
+        this->render_pass->destroy(&this->device);
+        delete this->render_pass;
+
         this->device.destroy();
     }
 

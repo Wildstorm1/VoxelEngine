@@ -2,9 +2,10 @@
 
 #include <vector>
 #include <vulkan/vulkan.h>
+#include "./vulkan_swapchain.h"
 #include "./vulkan_device_private.h"
 
-typedef int VulkanImageResult;
+typedef int VulkanRenderPassResult;
 
 #define VULKAN_IMAGE_INIT_SUCCESS 0
 #define VULKAN_IMAGE_INIT_FAILURE 1
@@ -12,43 +13,30 @@ typedef int VulkanImageResult;
 using namespace std;
 
 /*
- * Module wraps around vulkan resources which describe an image or
- * are used to draw an image
+ * Module wraps around vulkan resources for a render pass
  */
-class VulkanImage {
+class VulkanRenderPass {
     private:
-        VkSwapchainKHR swap_chain;
         vector<VkFramebuffer> swap_chain_framebuffers;
         vector<VkSemaphore> render_framebuffer_semaphores;
-        vector<VkImage> swap_chain_images;
-        vector<VkImageView> swap_chain_image_views;
-        VkFormat swap_chain_image_format;
-        VkExtent2D swap_chain_extent;
         VkRenderPass render_pass;
         VkImage depth_image;
         VkDeviceMemory depth_image_memory;
         VkImageView depth_image_view;
 
     public:
-        VulkanImage();
+        VulkanRenderPass();
 
         /*
          * Initializes a new instance of image related resources
          *
          * Should not be invoked more than once
          */
-        VulkanImageResult init(SDL_Window *window, VulkanDevice *device);
-
-        /*
-         * Return a handle to the swapchain, should only be called after
-         * init and before destroy
-         */
-        VkSwapchainKHR get_swapchain();
-
-        /*
-         * Return a handle to the swapchain extent
-         */
-        VkExtent2D get_swapchain_extent();
+        VulkanRenderPassResult init(
+            SDL_Window *window,
+            VulkanDevice *device,
+            VulkanSwapchain *swapchain
+        );
 
         /*
          * Return a handle to the render pass

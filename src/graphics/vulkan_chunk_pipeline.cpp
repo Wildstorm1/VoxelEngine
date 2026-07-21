@@ -5,7 +5,8 @@
 #include <fstream>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
-#include "../includes/graphics/vulkan_image_private.h"
+#include "../includes/graphics/vulkan_render_pass.h"
+#include "../includes/graphics/vulkan_swapchain.h"
 #include "../includes/graphics/vulkan_chunk_pipeline.h"
 #include "../includes/graphics/vulkan_device_private.h"
 #include "../includes/graphics/vulkan_mesh_heap.h"
@@ -271,20 +272,21 @@ VulkanChunkPipelineResult setup_draw_pipeline(
 
 VulkanChunkPipelineResult VulkanChunkPipeline::init(
     VulkanDevice *device,
-    VulkanImage *image,
+    VulkanRenderPass *render_pass,
+    VulkanSwapchain *swapchain,
     VulkanArrayMeshHeap *heap
 ) {
     cout << "Starting vulkan pipeline setup" << endl;
 
-    VkExtent2D swap_chain_extent = image->get_swapchain_extent();
-    VkRenderPass render_pass = image->get_render_pass();
+    VkExtent2D swap_chain_extent = swapchain->get_swapchain_extent();
+    VkRenderPass render_pass_handle = render_pass->get_render_pass();
 
     VulkanChunkPipelineResult draw_pipeline = setup_draw_pipeline(
         device,
         heap->get_descriptor_set_layout(),
         heap->get_descriptor_pool(),
         &swap_chain_extent,
-        &render_pass,
+        &render_pass_handle,
         &this->pipeline_layout,
         &this->graphics_pipeline
     );

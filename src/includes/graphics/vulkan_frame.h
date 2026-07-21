@@ -3,7 +3,8 @@
 #include <vulkan/vulkan.h>
 #include "../voxels/mesh.h"
 #include "./structs.h"
-#include "./vulkan_image_private.h"
+#include "./vulkan_swapchain.h"
+#include "./vulkan_render_pass.h"
 #include "./vulkan_device_private.h"
 #include "./vulkan_chunk_pipeline.h"
 
@@ -20,7 +21,8 @@ using namespace std;
 class VulkanFrame {
     private:
         VulkanDevice *device;
-        VulkanImage *image;
+        VulkanSwapchain *swapchain;
+        VulkanRenderPass *render_pass;
         VulkanChunkPipeline *pipeline;
         VkCommandPool command_pool;
         VkCommandBuffer command_buffer;
@@ -32,7 +34,8 @@ class VulkanFrame {
     public:
         VulkanFrame(
             VulkanDevice *device,
-            VulkanImage *image,
+            VulkanSwapchain *swapchain,
+            VulkanRenderPass *render_pass,
             VulkanChunkPipeline *pipeline,
             VkCommandPool command_pool,
             size_t frame_index

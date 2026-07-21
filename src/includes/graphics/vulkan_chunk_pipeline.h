@@ -2,7 +2,8 @@
 
 #include <vector>
 #include <vulkan/vulkan.h>
-#include "./vulkan_image_private.h"
+#include "./vulkan_render_pass.h"
+#include "./vulkan_swapchain.h"
 #include "./vulkan_device_private.h"
 #include "./vulkan_mesh_heap.h"
 
@@ -32,7 +33,8 @@ class VulkanChunkPipeline {
          */
         VulkanChunkPipelineResult init(
             VulkanDevice *device,
-            VulkanImage *image,
+            VulkanRenderPass *render_pass,
+            VulkanSwapchain *swapchain,
             VulkanArrayMeshHeap *heap
         );
 

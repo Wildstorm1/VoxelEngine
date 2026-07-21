@@ -8,127 +8,16 @@
 #include "../includes/voxels/mesh.h"
 #include "../includes/graphics/memory.h"
 #include "../includes/graphics/vulkan_frame.h"
-#include "../includes/graphics/vulkan_image_private.h"
+#include "../includes/graphics/vulkan_swapchain.h"
+#include "../includes/graphics/vulkan_render_pass.h"
 #include "../includes/graphics/vulkan_device_private.h"
 
 using namespace std;
 
-VulkanImage::VulkanImage() {
-    this->swap_chain = {};
-    this->swap_chain_images = {};
-    this->swap_chain_image_views = {};
+VulkanRenderPass::VulkanRenderPass() {
     this->render_framebuffer_semaphores = {};
-    this->swap_chain_image_format = {};
-    this->swap_chain_extent = {};
     this->render_pass = {};
     this->swap_chain_framebuffers = {};
-}
-
-VkSurfaceFormatKHR choose_swap_surface_format(
-    vector<VkSurfaceFormatKHR> &availableFormats
-) {
-    for (const auto& availableFormat : availableFormats) {
-        if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-            return availableFormat;
-        }
-    }
-
-    return availableFormats[0];
-}
-
-VkPresentModeKHR choose_swap_present_mode(
-    vector<VkPresentModeKHR> &availablePresentModes
-) {
-    for (const auto& availablePresentMode : availablePresentModes) {
-        if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-            return availablePresentMode;
-        }
-    }
-
-    return VK_PRESENT_MODE_FIFO_KHR;
-}
-
-VkExtent2D choose_swap_extent(
-    SDL_Window *window,
-    VkSurfaceCapabilitiesKHR &capabilities
-) {
-    if (capabilities.currentExtent.width != numeric_limits<uint32_t>::max()) {
-        return capabilities.currentExtent;
-    } else {
-        int width, height;
-        SDL_GetWindowSizeInPixels(window, &width, &height);
-
-        VkExtent2D actualExtent = {
-            static_cast<uint32_t>(width),
-            static_cast<uint32_t>(height)
-        };
-
-        actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-        actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-
-        return actualExtent;
-    }
-}
-
-VkResult create_swapchain(
-    VulkanDevice *device,
-    SDL_Window *window,
-    VkSwapchainKHR *swap_chain,
-    vector<VkImage> *swap_chain_images,
-    VkFormat *swap_chain_image_format,
-    VkExtent2D *swap_chain_extent
-) {
-    DeviceInfos* device_info = device->get_device_info();
-    VkSurfaceFormatKHR surface_format = choose_swap_surface_format(device_info->formats);
-    VkPresentModeKHR presentMode = choose_swap_present_mode(device_info->present_modes);
-    VkExtent2D extent = choose_swap_extent(window, device_info->capabilities);
-    uint32_t imageCount = device_info->capabilities.minImageCount + 1;
-
-    if (device_info->capabilities.maxImageCount > 0 && imageCount > device_info->capabilities.maxImageCount) {
-        imageCount = device_info->capabilities.maxImageCount;
-    }
-
-    VkSwapchainCreateInfoKHR swapchainInfo {};
-    swapchainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    swapchainInfo.surface = device->get_surface();
-    swapchainInfo.minImageCount = imageCount;
-    swapchainInfo.imageFormat = surface_format.format;
-    swapchainInfo.imageColorSpace = surface_format.colorSpace;
-    swapchainInfo.imageExtent = extent;
-    swapchainInfo.imageArrayLayers = 1;
-    swapchainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-    uint32_t queueFamilyIndices[] = { device_info->graphics_index.value(), device_info->presentation_index.value() };
-
-    if (device_info->graphics_index.value() != device_info->presentation_index.value()) {
-        swapchainInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        swapchainInfo.queueFamilyIndexCount = 2;
-        swapchainInfo.pQueueFamilyIndices = queueFamilyIndices;
-    } else {
-        swapchainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        swapchainInfo.queueFamilyIndexCount = 0; // Optional
-        swapchainInfo.pQueueFamilyIndices = nullptr; // Optional
-    }
-
-    swapchainInfo.preTransform = device_info->capabilities.currentTransform;
-    swapchainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    swapchainInfo.presentMode = presentMode;
-    swapchainInfo.clipped = VK_TRUE;
-    swapchainInfo.oldSwapchain = VK_NULL_HANDLE;
-
-    VkResult result = vkCreateSwapchainKHR(device->get_device(), &swapchainInfo, nullptr, swap_chain);
-
-    if (result == VK_SUCCESS) {
-        uint32_t image_count = 0;
-        vkGetSwapchainImagesKHR(device->get_device(), *swap_chain, &image_count, nullptr);
-        swap_chain_images->resize(image_count);
-        vkGetSwapchainImagesKHR(device->get_device(), *swap_chain, &image_count, swap_chain_images->data());
-
-        *swap_chain_image_format = surface_format.format;
-        *swap_chain_extent = extent;
-    }
-
-    return result;
 }
 
 VkResult create_image_view(
@@ -155,32 +44,6 @@ VkResult create_image_view(
     createInfo.subresourceRange.layerCount = 1;
 
     return vkCreateImageView(device->get_device(), &createInfo, nullptr, image_view);
-}
-
-VkResult create_image_views(
-    VulkanDevice *device,
-    vector<VkImage> *swap_chain_images,
-    vector<VkImageView> *swap_chain_image_views,
-    VkFormat *swap_chain_image_format
-) {
-    VkResult overall_result = VK_SUCCESS;
-    swap_chain_image_views->resize(swap_chain_images->size());
-
-    for (size_t i = 0; i < swap_chain_images->size(); i++) {
-        VkResult result = create_image_view(
-            device,
-            swap_chain_images->at(i),
-            *swap_chain_image_format,
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            &swap_chain_image_views->at(i)
-        );
-
-        if (result != VK_SUCCESS && overall_result == VK_SUCCESS) {
-            overall_result = result;
-        }
-    }
-
-    return overall_result;
 }
 
 VkResult create_render_pass(
@@ -374,39 +237,22 @@ void create_image(
     vkBindImageMemory(device->get_device(), image, imageMemory, 0);
 }
 
-VulkanImageResult VulkanImage::init(
+VulkanRenderPassResult VulkanRenderPass::init(
     SDL_Window *window,
-    VulkanDevice *device
+    VulkanDevice *device,
+    VulkanSwapchain *swapchain
 ) {
     cout << "Starting vulkan image setup" << endl;
 
-    VkResult swapchain_result = create_swapchain(
-        device, window, &this->swap_chain, &this->swap_chain_images, &this->swap_chain_image_format, &this->swap_chain_extent
-    );
-
-    if (swapchain_result == VK_SUCCESS) {
-        cout << "Successfully created vulkan swapchain" << endl;
-    } else {
-        cout << "Could not create swapchain" << endl;
-        return VULKAN_IMAGE_INIT_FAILURE;
-    }
-
-    VkResult image_views_result = create_image_views(
-        device, &this->swap_chain_images, &this->swap_chain_image_views, &this->swap_chain_image_format
-    );
-
-    if (image_views_result == VK_SUCCESS) {
-        cout << "Successfully created vulkan image views" << endl;
-    } else {
-        cout << "Could not create an image view" << endl;
-        return VULKAN_IMAGE_INIT_FAILURE;
-    }
+    VkExtent2D swap_chain_extent = swapchain->get_swapchain_extent();
+    VkFormat swap_chain_image_format = swapchain->get_swap_chain_image_format();
+    vector<VkImageView> swap_chain_image_views = swapchain->get_swap_chain_image_views();
 
     VkFormat depthFormat = find_depth_format(device);
     create_image(
         device,
-        this->swap_chain_extent.width,
-        this->swap_chain_extent.height,
+        swap_chain_extent.width,
+        swap_chain_extent.height,
         depthFormat,
         VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
@@ -431,7 +277,7 @@ VulkanImageResult VulkanImage::init(
     }
 
     VkResult render_pass_result = create_render_pass(
-        device, &this->swap_chain_image_format, &this->render_pass, depthFormat
+        device, &swap_chain_image_format, &this->render_pass, depthFormat
     );
 
     if (render_pass_result == VK_SUCCESS) {
@@ -444,8 +290,8 @@ VulkanImageResult VulkanImage::init(
     VkResult framebuffers_result = create_framebuffers(
         device,
         &this->render_pass,
-        &this->swap_chain_extent,
-        &this->swap_chain_image_views,
+        &swap_chain_extent,
+        &swap_chain_image_views,
         &this->swap_chain_framebuffers,
         this->depth_image_view
     );
@@ -460,9 +306,9 @@ VulkanImageResult VulkanImage::init(
     VkSemaphoreCreateInfo semaphoreInfo {};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-    this->render_framebuffer_semaphores.resize(this->swap_chain_image_views.size());
+    this->render_framebuffer_semaphores.resize(swap_chain_image_views.size());
 
-    for (size_t i = 0; i < this->swap_chain_image_views.size(); i++) {
+    for (size_t i = 0; i < swap_chain_image_views.size(); i++) {
         if (
             vkCreateSemaphore(device->get_device(), &semaphoreInfo, nullptr, &this->render_framebuffer_semaphores[i]) != VK_SUCCESS
         ) {
@@ -473,32 +319,22 @@ VulkanImageResult VulkanImage::init(
     return framebuffers_result;
 }
 
-VkSwapchainKHR VulkanImage::get_swapchain() {
-    return this->swap_chain;
-}
-
-VkExtent2D VulkanImage::get_swapchain_extent() {
-    return this->swap_chain_extent;
-}
-
-VkRenderPass VulkanImage::get_render_pass() {
+VkRenderPass VulkanRenderPass::get_render_pass() {
     return this->render_pass;
 }
 
-VkSemaphore VulkanImage::get_framebuffer_semaphore(size_t i) {
+VkSemaphore VulkanRenderPass::get_framebuffer_semaphore(size_t i) {
     return this->render_framebuffer_semaphores[i];
 }
 
-VkFramebuffer VulkanImage::get_framebuffer(size_t i) {
+VkFramebuffer VulkanRenderPass::get_framebuffer(size_t i) {
     return this->swap_chain_framebuffers[i];
 }
 
-void VulkanImage::destroy(
+void VulkanRenderPass::destroy(
     VulkanDevice *device
 ) {
-    vkDeviceWaitIdle(device->get_device());
-
-    for (size_t i = 0; i < this->swap_chain_image_views.size(); i++) {
+    for (size_t i = 0; i < this->render_framebuffer_semaphores.size(); i++) {
         vkDestroySemaphore(device->get_device(), this->render_framebuffer_semaphores[i], nullptr);
     }
 
@@ -511,10 +347,4 @@ void VulkanImage::destroy(
     }
 
     vkDestroyRenderPass(device->get_device(), this->render_pass, nullptr);
-
-    for (auto image_view : this->swap_chain_image_views) {
-        vkDestroyImageView(device->get_device(), image_view, nullptr);
-    }
-
-    vkDestroySwapchainKHR(device->get_device(), this->swap_chain, nullptr);
 }
