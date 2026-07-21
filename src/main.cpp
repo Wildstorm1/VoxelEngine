@@ -180,6 +180,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             WindowSize size = graphics->get_window_size();
             x = size.width / 2;
             y = size.height / 2;
+            SDL_WarpMouseInWindow(window, x, y);
         }
     }
 
